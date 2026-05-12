@@ -18,7 +18,7 @@ import PuzzleModule from './components/hub/modules/PuzzleModule';
 const SCORE_KEY = 'edumotion_score';
 
 // --- COMPONENTE HAND BUTTON (DWELL CLICK) ---
-const HandButton = ({ children, onClick, cursor, dwellMs = 1000, className = "", variant = "purple" }) => {
+const HandButton = ({ children, onClick, cursors = [], dwellMs = 1000, className = "", variant = "purple" }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [progress, setProgress] = useState(0);
   const startTime = useRef(null);
@@ -26,13 +26,16 @@ const HandButton = ({ children, onClick, cursor, dwellMs = 1000, className = "",
   const buttonRef = useRef(null);
 
   useEffect(() => {
-    if (!cursor.isVisible || !buttonRef.current) {
+    if (cursors.length === 0 || !buttonRef.current) {
       if (isHovered) reset();
       return;
     }
     
     const rect = buttonRef.current.getBoundingClientRect();
-    const over = cursor.x >= rect.left && cursor.x <= rect.right && cursor.y >= rect.top && cursor.y <= rect.bottom;
+    const over = cursors.some(cursor => 
+      cursor.x >= rect.left && cursor.x <= rect.right && 
+      cursor.y >= rect.top && cursor.y <= rect.bottom
+    );
 
     if (over && !isHovered) {
       setIsHovered(true);
@@ -52,7 +55,7 @@ const HandButton = ({ children, onClick, cursor, dwellMs = 1000, className = "",
     }
     
     return () => { if(timerRef.current) clearInterval(timerRef.current); };
-  }, [cursor, isHovered, dwellMs, onClick]);
+  }, [cursors, isHovered, dwellMs, onClick]);
 
   const reset = () => {
     setIsHovered(false);
@@ -89,7 +92,7 @@ const SystemHub = ({ onExit }) => {
   const videoRef = useRef(null);
   const { isLoaded, landmarks, initMediaPipe } = useMediaPipe();
   const gestures = useGestures(landmarks);
-  const cursor = useHandCursor(landmarks);
+  const cursors = useHandCursor(landmarks);
 
   useEffect(() => {
     initMediaPipe(videoRef.current);
@@ -106,7 +109,7 @@ const SystemHub = ({ onExit }) => {
   };
 
   return (
-    <LayeredEngine videoRef={videoRef} landmarks={landmarks} cursor={cursor} gestures={gestures} isLoaded={isLoaded}>
+    <LayeredEngine videoRef={videoRef} landmarks={landmarks} cursors={cursors} gestures={gestures} isLoaded={isLoaded}>
       <AnimatePresence mode="wait">
         {view === 'HOME' && (
           <motion.div key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="flex-1 flex flex-col items-center justify-center p-20">
@@ -118,10 +121,10 @@ const SystemHub = ({ onExit }) => {
               </div>
               
               <div className="flex flex-col items-center gap-6 w-full">
-                <HandButton cursor={cursor} onClick={() => setView('MENU')} className="px-16 py-8 text-xl w-full max-w-sm" dwellMs={1200}>
+                <HandButton cursors={cursors} onClick={() => setView('MENU')} className="px-16 py-8 text-xl w-full max-w-sm" dwellMs={1200}>
                   <Play fill="white" size={24} /> COMENZAR
                 </HandButton>
-                <HandButton cursor={cursor} onClick={onExit} className="px-8 py-4 text-[10px]" variant="red" dwellMs={800}>
+                <HandButton cursors={cursors} onClick={onExit} className="px-8 py-4 text-[10px]" variant="red" dwellMs={800}>
                   <LogOut size={14} /> SALIR AL PORTAL
                 </HandButton>
               </div>
@@ -132,15 +135,15 @@ const SystemHub = ({ onExit }) => {
         {view === 'MENU' && (
           <motion.div key="menu" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.1 }} className="flex-1 flex flex-col items-center justify-center p-12">
             <div className="absolute top-12 left-12">
-               <HandButton cursor={cursor} onClick={() => setView('HOME')} className="p-4" variant="red" dwellMs={600}><ArrowLeft/></HandButton>
+               <HandButton cursors={cursors} onClick={() => setView('HOME')} className="p-4" variant="red" dwellMs={600}><ArrowLeft/></HandButton>
             </div>
             
             <h2 className="text-5xl font-display font-black mb-16 italic text-gradient tracking-tighter uppercase underline decoration-purple-500/30 decoration-8 underline-offset-[16px]">Módulos de Aprendizaje</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-12 w-full max-w-6xl">
-              <MenuCard icon={<Palette size={48} />} title="Pizarra" color="purple" cursor={cursor} onSelect={() => { setView('GAME'); setCurrentGame('PIZARRA'); }} />
-              <MenuCard icon={<Music size={48} />} title="Piano" color="cyan" cursor={cursor} onSelect={() => { setView('GAME'); setCurrentGame('PIANO'); }} />
-              <MenuCard icon={<Puzzle size={48} />} title="Puzzle" color="orange" cursor={cursor} onSelect={() => { setView('GAME'); setCurrentGame('PUZZLE'); }} />
+              <MenuCard icon={<Palette size={48} />} title="Pizarra" color="purple" cursors={cursors} onSelect={() => { setView('GAME'); setCurrentGame('PIZARRA'); }} />
+              <MenuCard icon={<Music size={48} />} title="Piano" color="cyan" cursors={cursors} onSelect={() => { setView('GAME'); setCurrentGame('PIANO'); }} />
+              <MenuCard icon={<Puzzle size={48} />} title="Puzzle" color="orange" cursors={cursors} onSelect={() => { setView('GAME'); setCurrentGame('PUZZLE'); }} />
             </div>
           </motion.div>
         )}
@@ -150,7 +153,7 @@ const SystemHub = ({ onExit }) => {
             {/* Game Header */}
             <div className="h-20 glass-dark border-b border-white/10 flex items-center justify-between px-12 z-[100]">
               <div className="flex items-center gap-8">
-                <HandButton cursor={cursor} onClick={() => setView('MENU')} className="p-4" variant="red" dwellMs={800}><ArrowLeft size={20}/></HandButton>
+                <HandButton cursors={cursors} onClick={() => setView('MENU')} className="p-4" variant="red" dwellMs={800}><ArrowLeft size={20}/></HandButton>
                 <div className="flex flex-col">
                     <span className="text-[12px] font-black uppercase tracking-[0.4em] text-purple-400 italic">EduMotion Hub</span>
                     <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Módulo: {currentGame}</span>
@@ -170,9 +173,9 @@ const SystemHub = ({ onExit }) => {
             </div>
 
             <div className="flex-1 relative">
-              {currentGame === 'PIZARRA' && <DrawingModule cursor={cursor} gestures={gestures} addPoints={addPoints} />}
-              {currentGame === 'PIANO' && <PianoModule cursor={cursor} gestures={gestures} addPoints={addPoints} />}
-              {currentGame === 'PUZZLE' && <PuzzleModule cursor={cursor} gestures={gestures} addPoints={addPoints} />}
+              {currentGame === 'PIZARRA' && <DrawingModule cursors={cursors} gestures={gestures} addPoints={addPoints} />}
+              {currentGame === 'PIANO' && <PianoModule cursors={cursors} gestures={gestures} addPoints={addPoints} />}
+              {currentGame === 'PUZZLE' && <PuzzleModule cursors={cursors} gestures={gestures} addPoints={addPoints} />}
             </div>
           </motion.div>
         )}
@@ -194,9 +197,9 @@ const SystemHub = ({ onExit }) => {
   );
 };
 
-const MenuCard = ({ icon, title, color, onSelect, cursor }) => (
+const MenuCard = ({ icon, title, color, onSelect, cursors }) => (
   <div className="group relative">
-    <HandButton cursor={cursor} onClick={onSelect} className="w-full aspect-square rounded-[60px] flex flex-col items-center justify-center gap-8" variant={color} dwellMs={1000}>
+    <HandButton cursors={cursors} onClick={onSelect} className="w-full aspect-square rounded-[60px] flex flex-col items-center justify-center gap-8" variant={color} dwellMs={1000}>
         <div className="p-8 bg-white/10 rounded-3xl group-hover:scale-110 transition-transform duration-500 shadow-inner">
             {icon}
         </div>

@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
-const LayeredEngine = ({ children, videoRef, landmarks, cursor, gestures, isLoaded }) => {
+const LayeredEngine = ({ children, videoRef, landmarks, cursors, gestures, isLoaded }) => {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -10,10 +10,13 @@ const LayeredEngine = ({ children, videoRef, landmarks, cursor, gestures, isLoad
     const ctx = canvasRef.current.getContext('2d');
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-    // Draw landmarks if drawing_utils are available
+    // Draw landmarks for all hands
     if (window.drawConnectors && landmarks.length > 0) {
-      window.drawConnectors(ctx, landmarks, window.HAND_CONNECTIONS, { color: '#7C3AED', lineWidth: 4 });
-      window.drawLandmarks(ctx, landmarks, { color: '#06B6D4', lineWidth: 1, radius: 2 });
+      landmarks.forEach((handLandmarks, i) => {
+        const color = i === 0 ? '#7C3AED' : '#EC4899'; // Hand 1 Violet, Hand 2 Pink
+        window.drawConnectors(ctx, handLandmarks, window.HAND_CONNECTIONS, { color, lineWidth: 4 });
+        window.drawLandmarks(ctx, handLandmarks, { color: '#06B6D4', lineWidth: 1, radius: 2 });
+      });
     }
   }, [landmarks, isLoaded]);
 
@@ -57,26 +60,27 @@ const LayeredEngine = ({ children, videoRef, landmarks, cursor, gestures, isLoad
         {children}
       </div>
 
-      {/* 5. Virtual Cursor Layer */}
-      {cursor.isVisible && (
+      {/* 5. Virtual Cursors Layer */}
+      {cursors.map((cursor, i) => (
         <div 
+          key={i}
           className="fixed z-[10000] pointer-events-none transform -translate-x-1/2 -translate-y-1/2"
           style={{ left: cursor.x, top: cursor.y }}
         >
           <motion.div 
             animate={{ 
-              scale: gestures.isPinching ? 0.8 : 1,
-              backgroundColor: gestures.isPinching ? 'rgba(255, 255, 255, 0.8)' : 'rgba(124, 58, 237, 0.2)',
-              borderColor: gestures.isPinching ? '#ffffff' : '#7C3AED',
-              boxShadow: gestures.isPinching ? '0 0 30px white' : '0 0 15px rgba(124, 58, 237, 0.5)'
+              scale: gestures[i]?.isPinching ? 0.8 : 1,
+              backgroundColor: gestures[i]?.isPinching ? 'rgba(255, 255, 255, 0.8)' : (i === 0 ? 'rgba(124, 58, 237, 0.2)' : 'rgba(236, 72, 153, 0.2)'),
+              borderColor: gestures[i]?.isPinching ? '#ffffff' : (i === 0 ? '#7C3AED' : '#EC4899'),
+              boxShadow: gestures[i]?.isPinching ? '0 0 30px white' : (i === 0 ? '0 0 15px rgba(124, 58, 237, 0.5)' : '0 0 15px rgba(236, 72, 153, 0.5)')
             }}
             className="w-10 h-10 rounded-full border-2 transition-all"
           />
-          <div className="absolute top-12 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-white/60 italic drop-shadow-md">
-            {gestures.isIndexUp ? '☝️ Dibujando' : gestures.isOpenHand ? '✋ Pausa' : gestures.isPinching ? '🤏 Pinza' : '🖐️ Activo'}
+          <div className="absolute top-12 left-1/2 -translate-x-1/2 whitespace-nowrap text-[8px] font-black uppercase tracking-widest text-white/60 italic drop-shadow-md">
+            {gestures[i]?.isIndexUp ? '☝️ Dibujando' : gestures[i]?.isOpenHand ? '✋ Pausa' : gestures[i]?.isPinching ? '🤏 Pinza' : `🖐️ Mano ${i + 1}`}
           </div>
         </div>
-      )}
+      ))}
 
       {/* Loading Screen */}
       {!isLoaded && (

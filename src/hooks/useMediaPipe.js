@@ -38,17 +38,17 @@ export const useMediaPipe = () => {
       });
 
       hands.setOptions({
-        maxNumHands: 1,
+        maxNumHands: 2,
         modelComplexity: 1,
-        minDetectionConfidence: 0.6,
-        minTrackingConfidence: 0.6
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
       });
 
       hands.onResults((results) => {
         if (!isActiveRef.current) return;
 
         if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-          setLandmarks(results.multiHandLandmarks[0]);
+          setLandmarks(results.multiHandLandmarks);
           setIsDetecting(true);
         } else {
           setLandmarks([]);
@@ -57,6 +57,9 @@ export const useMediaPipe = () => {
       });
 
       handsRef.current = hands;
+
+      // Ensure model is ready
+      await hands.initialize();
 
       // Initialize camera stream
       const stream = await navigator.mediaDevices.getUserMedia({

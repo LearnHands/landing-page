@@ -2,40 +2,54 @@ import { useState, useEffect, useRef } from 'react';
 
 const LERP_FACTOR = 0.25;
 
-export const useHandCursor = (landmarks) => {
-  const [cursor, setCursor] = useState({ x: 0, y: 0, isVisible: false });
-  const rawPos = useRef({ x: 0, y: 0 });
-  const lerpPos = useRef({ x: 0, y: 0 });
+export const useHandCursor = (multiHandLandmarks) => {
+  const [cursors, setCursors] = useState([]);
+  const rawPositions = useRef([]);
+  const lerpPositions = useRef([]);
   const frameRef = useRef(null);
 
   useEffect(() => {
-    if (!landmarks || landmarks.length === 0) {
-      setCursor(prev => ({ ...prev, isVisible: false }));
+    if (!multiHandLandmarks || multiHandLandmarks.length === 0) {
+      setCursors([]);
+      rawPositions.current = [];
       return;
     }
 
-    const indexTip = landmarks[8];
-    if (indexTip) {
-      // Mirror X
-      rawPos.current = {
-        x: (1 - indexTip.x) * window.innerWidth,
-        y: indexTip.y * window.innerHeight
-      };
-      setCursor(prev => ({ ...prev, isVisible: true }));
+    // Initialize raw positions if needed
+    multiHandLandmarks.forEach((landmarks, i) => {
+      const indexTip = landmarks[8];
+      if (indexTip) {
+        rawPositions.current[i] = {
+          x: (1 - indexTip.x) * window.innerWidth,
+          y: indexTip.y * window.innerHeight
+        };
+        
+        if (!lerpPositions.current[i]) {
+          lerpPositions.current[i] = { ...rawPositions.current[i] };
+        }
+      }
+    });
+
+    // Cleanup extra positions if hands are removed
+    if (rawPositions.current.length > multiHandLandmarks.length) {
+      rawPositions.current = rawPositions.current.slice(0, multiHandLandmarks.length);
+      lerpPositions.current = lerpPositions.current.slice(0, multiHandLandmarks.length);
     }
-  }, [landmarks]);
+  }, [multiHandLandmarks]);
 
   useEffect(() => {
     const loop = () => {
-      lerpPos.current.x += (rawPos.current.x - lerpPos.current.x) * LERP_FACTOR;
-      lerpPos.current.y += (rawPos.current.y - lerpPos.current.y) * LERP_FACTOR;
+      const updatedCursors = lerpPositions.current.map((pos, i) => {
+        const raw = rawPositions.current[i];
+        if (!raw) return pos;
 
-      setCursor(prev => ({
-        ...prev,
-        x: lerpPos.current.x,
-        y: lerpPos.current.y
-      }));
+        pos.x += (raw.x - pos.x) * LERP_FACTOR;
+        pos.y += (raw.y - pos.y) * LERP_FACTOR;
 
+        return { x: pos.x, y: pos.y, isVisible: true };
+      });
+
+      setCursors(updatedCursors);
       frameRef.current = requestAnimationFrame(loop);
     };
 
@@ -43,5 +57,5 @@ export const useHandCursor = (landmarks) => {
     return () => cancelAnimationFrame(frameRef.current);
   }, []);
 
-  return cursor;
+  return cursors;
 };

@@ -1,119 +1,169 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { RefreshCw, CheckCircle } from 'lucide-react';
 
-const INITIAL_PIECES = [
-  { id: 1, x: 20, y: 75, color: '#7C3AED', emoji: '🌟', slotId: 1, placed: false },
-  { id: 2, x: 50, y: 75, color: '#06B6D4', emoji: '🎨', slotId: 2, placed: false },
-  { id: 3, x: 80, y: 75, color: '#EC4899', emoji: '🎮', slotId: 3, placed: false },
-];
+const GRID_SIZE = 2; // 2x2 for kids
+const TILE_COUNT = GRID_SIZE * GRID_SIZE;
 
-const SLOTS = [
-  { id: 1, x: 25, y: 35 },
-  { id: 2, x: 50, y: 35 },
-  { id: 3, x: 75, y: 35 }
-];
+const PuzzleModule = ({ cursors, gestures, addPoints }) => {
+  const [imageUrl, setImageUrl] = useState(`https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&q=80`); // Random art for kids
+  const [tiles, setTiles] = useState([]);
+  const [isWon, setIsWon] = useState(false);
+  const [draggingStates, setDraggingStates] = useState({}); // { handIndex: tileId }
 
-const PuzzleModule = ({ cursor, gestures, addPoints }) => {
-  const [pieces, setPieces] = useState(INITIAL_PIECES);
-  const [draggedId, setDraggedId] = useState(null);
+  const initializePuzzle = () => {
+    const newTiles = [];
+    for (let i = 0; i < TILE_COUNT; i++) {
+      const row = Math.floor(i / GRID_SIZE);
+      const col = i % GRID_SIZE;
+      newTiles.push({
+        id: i,
+        correctRow: row,
+        correctCol: col,
+        // Start scattered at the bottom
+        x: 20 + (i * 20), 
+        y: 80,
+        placed: false
+      });
+    }
+    
+    // Scramble initial positions
+    const shuffled = newTiles.map(t => ({
+        ...t,
+        x: 15 + Math.random() * 70,
+        y: 75 + Math.random() * 15
+    }));
+    
+    setTiles(shuffled);
+    setIsWon(false);
+    setDraggingStates({});
+  };
 
   useEffect(() => {
-    if (!cursor.isVisible) return;
+    initializePuzzle();
+  }, [imageUrl]);
 
-    const cursorPct = {
-      x: (cursor.x / window.innerWidth) * 100,
-      y: (cursor.y / window.innerHeight) * 100
-    };
+  useEffect(() => {
+    if (cursors.length === 0) return;
 
-    if (gestures.isPinching) {
-      if (!draggedId) {
-        // Find piece near cursor
-        const target = pieces.find(p => !p.placed && Math.hypot(p.x - cursorPct.x, p.y - cursorPct.y) < 10);
-        if (target) setDraggedId(target.id);
-      } else {
-        // Move dragged piece
-        setPieces(prev => prev.map(p => 
-          p.id === draggedId ? { ...p, x: cursorPct.x, y: cursorPct.y } : p
-        ));
+    const newDraggingStates = { ...draggingStates };
+    let piecesUpdated = false;
+    const nextTiles = [...tiles];
+
+    cursors.forEach((cursor, handIdx) => {
+      const cursorPct = {
+        x: (cursor.x / window.innerWidth) * 100,
+        y: (cursor.y / window.innerHeight) * 100
+      };
+
+      const isPinching = gestures[handIdx]?.isPinching;
+      const currentDraggedId = draggingStates[handIdx];
+
+      if (isPinching) {
+        if (currentDraggedId === undefined) {
+          // Try to pick up a piece
+          const target = nextTiles.find(t => !t.placed && Math.hypot(t.x - cursorPct.x, t.y - cursorPct.y) < 12);
+          if (target && !Object.values(newDraggingStates).includes(target.id)) {
+            newDraggingStates[handIdx] = target.id;
+          }
+        } else {
+          // Move the piece
+          const tileIdx = nextTiles.findIndex(t => t.id === currentDraggedId);
+          if (tileIdx !== -1) {
+            nextTiles[tileIdx] = { ...nextTiles[tileIdx], x: cursorPct.x, y: cursorPct.y };
+            piecesUpdated = true;
+          }
+        }
+      } else if (currentDraggedId !== undefined) {
+        // Drop the piece
+        const tileIdx = nextTiles.findIndex(t => t.id === currentDraggedId);
+        if (tileIdx !== -1) {
+          const tile = nextTiles[tileIdx];
+          // Check if near correct slot
+          const slotX = 50 - (GRID_SIZE * 10) + (tile.correctCol * 20) + 10;
+          const slotY = 35 - (GRID_SIZE * 10) + (tile.correctRow * 20) + 10;
+          
+          if (Math.hypot(tile.x - slotX, tile.y - slotY) < 10) {
+            nextTiles[tileIdx] = { ...tile, x: slotX, y: slotY, placed: true };
+            addPoints(100);
+          }
+          piecesUpdated = true;
+        }
+        delete newDraggingStates[handIdx];
       }
-    } else if (draggedId) {
-      // Release piece
-      const p = pieces.find(x => x.id === draggedId);
-      const s = SLOTS.find(x => x.id === p.slotId);
-      
-      if (s && Math.hypot(p.x - s.x, p.y - s.y) < 10) {
-        // Successful placement
-        setPieces(prev => prev.map(x => 
-          x.id === draggedId ? { ...x, x: s.x, y: s.y, placed: true } : x
-        ));
-        addPoints(50);
-      } else {
-        // Reset position if not placed
-        const original = INITIAL_PIECES.find(x => x.id === draggedId);
-        setPieces(prev => prev.map(x => 
-          x.id === draggedId ? { ...x, x: original.x, y: original.y } : x
-        ));
-      }
-      setDraggedId(null);
+    });
+
+    if (piecesUpdated) setTiles(nextTiles);
+    setDraggingStates(newDraggingStates);
+
+    // Check win condition
+    if (nextTiles.every(t => t.placed) && !isWon) {
+      setIsWon(true);
+      addPoints(500);
     }
-  }, [cursor, gestures, pieces, draggedId, addPoints]);
+  }, [cursors, gestures, tiles, draggingStates, isWon, addPoints]);
 
   return (
-    <div className="w-full h-full relative overflow-hidden">
-      {/* Target Slots */}
-      <div className="absolute top-0 inset-x-0 h-1/2 flex justify-center items-center pointer-events-none">
-        <div className="flex gap-24">
-          {SLOTS.map(s => (
-            <div 
-              key={s.id} 
-              className={`w-48 h-48 rounded-[60px] border-4 border-dashed transition-all duration-500 flex flex-col items-center justify-center gap-2 ${
-                pieces.find(p => p.slotId === s.id && p.placed)
-                ? 'border-green-500/50 bg-green-500/5 scale-95'
-                : 'border-white/5 bg-white/2'
-              }`}
-            >
-              <div className="text-8xl font-display font-black text-white/5 italic">{s.id}</div>
-              <div className="text-[10px] font-black text-white/10 uppercase tracking-widest">Colocar aquí</div>
-            </div>
-          ))}
-        </div>
+    <div className="w-full h-full relative overflow-hidden flex flex-col items-center">
+      {/* Slots Area (Target Image) */}
+      <div className="absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40vw] aspect-square grid grid-cols-2 gap-2 p-2 glass border border-white/10 rounded-3xl opacity-20 pointer-events-none">
+        {Array.from({ length: TILE_COUNT }).map((_, i) => (
+          <div key={i} className="bg-white/5 border border-white/5 rounded-xl" />
+        ))}
       </div>
 
-      {/* Pieces */}
-      {pieces.map(p => (
+      {/* Win Overlay */}
+      <AnimatePresence>
+        {isWon && (
+          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md">
+            <CheckCircle size={120} className="text-green-400 mb-8" />
+            <h2 className="text-6xl font-display font-black text-white italic mb-12 uppercase tracking-tighter">¡Puzzle Completado!</h2>
+            <button onClick={initializePuzzle} className="px-12 py-6 bg-purple-600 rounded-[30px] font-black uppercase tracking-[0.4em] text-xs hover:scale-110 transition-all flex items-center gap-4">
+               <RefreshCw size={18} /> Jugar de nuevo
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tiles */}
+      {tiles.map(t => (
         <motion.div 
-          key={p.id}
+          key={t.id}
           animate={{ 
-            left: `${p.x}%`, 
-            top: `${p.y}%`,
-            scale: draggedId === p.id ? 1.2 : 1,
-            rotate: draggedId === p.id ? 5 : 0,
-            opacity: p.placed ? 0.6 : 1,
-            filter: p.placed ? 'grayscale(0.5)' : 'none'
+            left: `${t.x}%`, 
+            top: `${t.y}%`,
+            scale: Object.values(draggingStates).includes(t.id) ? 1.1 : 1,
+            zIndex: Object.values(draggingStates).includes(t.id) ? 50 : 20,
+            boxShadow: Object.values(draggingStates).includes(t.id) ? '0 0 50px rgba(124, 58, 237, 0.5)' : '0 10px 30px rgba(0,0,0,0.5)'
           }}
-          className={`absolute w-44 h-44 rounded-[60px] border-4 border-white/20 flex flex-col items-center justify-center gap-3 shadow-2xl z-20 transform -translate-x-1/2 -translate-y-1/2 transition-shadow ${
-            draggedId === p.id ? 'z-50 shadow-white/30' : ''
+          className={`absolute w-[18vw] aspect-square rounded-2xl overflow-hidden border-2 transform -translate-x-1/2 -translate-y-1/2 cursor-none ${
+            t.placed ? 'border-green-500/50' : 'border-white/20'
           }`}
-          style={{ backgroundColor: p.color }}
+          style={{
+            backgroundImage: `url(${imageUrl})`,
+            backgroundSize: `${GRID_SIZE * 100}% ${GRID_SIZE * 100}%`,
+            backgroundPosition: `${(t.correctCol / (GRID_SIZE - 1)) * 100}% ${(t.correctRow / (GRID_SIZE - 1)) * 100}%`,
+          }}
         >
-          <div className="text-8xl drop-shadow-xl">{p.emoji}</div>
-          {p.placed && (
-            <div className="absolute inset-0 flex items-center justify-center bg-green-500/20 rounded-[60px] border-4 border-green-500 animate-pulse">
-                <span className="text-white font-black text-4xl">✓</span>
+          {t.placed && (
+            <div className="absolute inset-0 bg-green-500/10 flex items-center justify-center">
+                <CheckCircle size={48} className="text-white/40" />
             </div>
           )}
         </motion.div>
       ))}
 
-      {/* Tutorial Tooltip */}
-      {!draggedId && pieces.some(p => !p.placed) && (
-        <div className="absolute bottom-12 w-full flex justify-center">
-            <div className="glass px-8 py-4 rounded-2xl border border-white/10 flex items-center gap-4 animate-bounce">
-                <span className="text-2xl">🤏</span>
-                <span className="text-xs font-black uppercase tracking-widest text-white/60">Haz pinza para arrastrar las piezas</span>
-            </div>
+      {/* Instructions */}
+      {!isWon && (
+        <div className="absolute bottom-12 flex items-center gap-6 glass px-8 py-4 rounded-[30px] border border-white/10 animate-bounce">
+            <span className="text-4xl">🤏</span>
+            <span className="text-xs font-black uppercase tracking-widest text-white/60 italic">Haz pinza para ordenar la imagen</span>
         </div>
       )}
+      
+      <button onClick={() => setImageUrl(`https://images.unsplash.com/photo-${Date.now()}?w=800&q=80`)} className="absolute top-24 right-12 p-4 glass rounded-2xl border border-white/10 text-white/40 hover:text-white transition-all">
+          <RefreshCw size={20} />
+      </button>
     </div>
   );
 };

@@ -4,7 +4,6 @@ const LiveHandTracker = ({ active = false, onHandUpdate }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isCameraActive, setIsCameraActive] = useState(false);
 
   useEffect(() => {
     if (!active) return;
@@ -14,6 +13,7 @@ const LiveHandTracker = ({ active = false, onHandUpdate }) => {
     let localStream = null;
 
     const init = async () => {
+      // Cargar scripts si no existen
       if (!window.Hands) {
         await new Promise((resolve) => {
           const script = document.createElement('script');
@@ -42,8 +42,8 @@ const LiveHandTracker = ({ active = false, onHandUpdate }) => {
       hands.setOptions({
         maxNumHands: 1,
         modelComplexity: 1,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
+        minDetectionConfidence: 0.6,
+        minTrackingConfidence: 0.6
       });
 
       hands.onResults((results) => {
@@ -56,26 +56,48 @@ const LiveHandTracker = ({ active = false, onHandUpdate }) => {
         if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
           const landmarks = results.multiHandLandmarks[0];
           
-          // Dibujar en canvas
-          window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, { color: '#A78BFA', lineWidth: 2 });
+          // Dibujar esqueleto (opcional, pero útil para feedback)
+          window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, { color: '#7C3AED', lineWidth: 4 });
           window.drawLandmarks(canvasCtx, landmarks, { color: '#06B6D4', lineWidth: 1, radius: 2 });
 
-          // Lógica de Gesto de Pinza (Pinch)
+          // --- LÓGICA DE GESTOS (Portado de useGestures.js) ---
+          const distance2D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+          const isFingerExt = (tip, pip) => tip.y < pip.y;
+
           const thumbTip = landmarks[4];
           const indexTip = landmarks[8];
-          const distance = Math.sqrt(
-            Math.pow(thumbTip.x - indexTip.x, 2) + 
-            Math.pow(thumbTip.y - indexTip.y, 2)
-          );
+          const indexPip = landmarks[6];
+          const middleTip = landmarks[12];
+          const middlePip = landmarks[10];
+          const ringTip = landmarks[16];
+          const ringPip = landmarks[14];
+          const pinkyTip = landmarks[20];
+          const pinkyPip = landmarks[18];
 
-          const isPinching = distance < 0.08;
+          // 1. PINCH (Pulgar + Índice)
+          const pinchDist = distance2D(thumbTip, indexTip);
+          const isPinching = pinchDist < 0.07;
+
+          // 2. DEDOS EXTENDIDOS
+          const indexExt  = isFingerExt(indexTip, indexPip);
+          const middleExt = isFingerExt(middleTip, middlePip);
+          const ringExt   = isFingerExt(ringTip, ringPip);
+          const pinkyExt  = isFingerExt(pinkyTip, pinkyPip);
+
+          // 3. MANO ABIERTA
+          const isOpenHand = indexExt && middleExt && ringExt && pinkyExt;
+
+          // 4. ÍNDICE ARRIBA (Solo índice)
+          const isIndexUp = indexExt && !middleExt && !ringExt && !pinkyExt;
           
-          // Enviar datos al padre (invertimos X para modo espejo)
           if (onHandUpdate) {
             onHandUpdate({
               x: 1 - indexTip.x, // Modo espejo
               y: indexTip.y,
-              isPinching
+              isPinching,
+              isOpenHand,
+              isIndexUp,
+              landmarks // Enviamos landmarks por si se necesitan
             });
           }
         } else {
@@ -85,13 +107,14 @@ const LiveHandTracker = ({ active = false, onHandUpdate }) => {
       });
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } 
+        });
         localStream = stream;
         if (videoRef.current && isActive) {
           videoRef.current.srcObject = stream;
-          setIsCameraActive(true);
         }
-      } catch (err) { console.error(err); }
+      } catch (err) { console.error("Camera Error:", err); }
 
       setIsLoaded(true);
 
@@ -115,12 +138,17 @@ const LiveHandTracker = ({ active = false, onHandUpdate }) => {
   }, [active]);
 
   return (
-    <div className="absolute inset-0 z-0 overflow-hidden rounded-[32px]">
-      <video ref={videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover opacity-20 grayscale brightness-50 scale-x-[-1]" />
-      <canvas ref={canvasRef} width="640" height="480" className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none scale-x-[-1]" />
+    <div className="absolute inset-0 z-0 overflow-hidden">
+      {/* Aumentamos la opacidad de la cámara para que el usuario se vea */}
+      <video ref={videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover opacity-40 grayscale brightness-75 scale-x-[-1]" />
+      <canvas ref={canvasRef} width="1280" height="720" className="absolute inset-0 w-full h-full object-cover z-10 pointer-events-none scale-x-[-1]" />
+      
       {!isLoaded && active && (
-        <div className="absolute inset-0 flex items-center justify-center z-30 bg-[#0A0A1A]">
-          <div className="w-10 h-10 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
+        <div className="absolute inset-0 flex items-center justify-center z-[100] bg-[#0A0A1A]">
+          <div className="text-center space-y-6">
+            <div className="w-16 h-16 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin mx-auto" />
+            <p className="text-purple-400 font-black uppercase tracking-widest text-[10px]">Iniciando Sensor de Movimiento...</p>
+          </div>
         </div>
       )}
     </div>

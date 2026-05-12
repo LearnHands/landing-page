@@ -1,16 +1,46 @@
-# React + Vite
+# EduMotion 🖐️✨ (Versión Web Hub)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**EduMotion** es una plataforma educativa interactiva diseñada para la inclusión digital en entornos escolares (Fe y Alegría Ecuador). Esta versión web evoluciona el proyecto original de escritorio hacia una aplicación accesible desde cualquier navegador moderno, eliminando la necesidad de instalaciones complejas.
 
-Currently, two official plugins are available:
+Utiliza **Inteligencia Artificial y Visión por Computadora** para permitir que los estudiantes interactúen con actividades lúdicas utilizando únicamente los gestos de sus manos frente a la cámara web.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Misión del Proyecto
+Facilitar el aprendizaje interactivo para niños con retos motrices o en etapas iniciales de desarrollo, eliminando las barreras físicas de entrada y convirtiendo el movimiento natural del cuerpo en una herramienta de aprendizaje.
 
-## React Compiler
+## 🛠️ Tecnologías Utilizadas (Web Stack)
+- **Core:** [React 19](https://react.dev/) (Migrado desde Vue.js)
+- **Motor de IA:** [MediaPipe Hands](https://google.github.io/mediapipe/solutions/hands) (Google) ejecutado en el cliente.
+- **Estilos:** [TailwindCSS v4](https://tailwindcss.com/)
+- **Animaciones:** [Framer Motion](https://www.framer.com/motion/)
+- **Audio:** Web Audio API para el sintetizador gestual.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🎮 Módulos Educativos
+1.  **Pizarra de Dibujo:** Creatividad libre guiada por el dedo índice (Gesto ☝️).
+2.  **Piano Mágico:** Iniciación musical y relación causa-efecto mediante gestos. Teclado superior para interacción aérea.
+3.  **Rompecabezas (Puzzle):** Lógica espacial utilizando el gesto de "pinza" (Gesto 🤏) para mover objetos.
 
-## Expanding the ESLint configuration
+## 🔐 Acceso Docente (Login)
+La aplicación cuenta con una pantalla de acceso protegida para que los profesores gestionen la sesión.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+**Credenciales Predeterminadas:**
+- **Usuario Administrador:** `admin` | **Contraseña:** `123`
+- **Usuario Profesor:** `profesor` | **Contraseña:** `123`
+
+## ⚙️ Desarrollo Local
+
+### Requisitos
+- Node.js (v18 o superior)
+- Webcam funcional
+
+### Ejecución
+```bash
+# Instalar dependencias
+npm install
+
+# Iniciar servidor de desarrollo
+npm run dev
+```
+
+---
+Desarrollado con ❤️ por el **Grupo Uno Emprendimiento** para Fe y Alegría Ecuador.
+Repo Oficial: https://github.com/GrupoUnoEmprendimiento/EduMotion

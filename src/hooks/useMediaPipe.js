@@ -1,118 +1,122 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-/**
- * Hook to initialize and manage MediaPipe Hands
- */
+// Singleton to prevent re-initialization conflicts
+let globalHandsInstance = null;
+let globalHandsPromise = null;
+
 export const useMediaPipe = () => {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [isDetecting, setIsDetecting] = useState(false);
-  const [error, setError] = useState(null);
-  const [landmarks, setLandmarks] = useState([]);
+  // Minimize hooks to 1 state and 4 refs for total stability
+  const [data, setData] = useState({
+    isLoaded: false,
+    isDetecting: false,
+    landmarks: [],
+    error: null
+  });
   
-  const handsRef = useRef(null);
-  const cameraRef = useRef(null);
   const videoRef = useRef(null);
   const isActiveRef = useRef(false);
-
-  const initMediaPipe = useCallback(async (videoElement) => {
-    if (!videoElement) return;
-    videoRef.current = videoElement;
-    isActiveRef.current = true;
-
-    try {
-      // Load scripts dynamically if not present
-      if (!window.Hands) {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js';
-          script.crossOrigin = 'anonymous';
-          script.onload = resolve;
-          script.onerror = () => reject(new Error('Failed to load MediaPipe Hands script'));
-          document.head.appendChild(script);
-        });
-      }
-
-      const Hands = window.Hands;
-      const hands = new Hands({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
-      });
-
-      hands.setOptions({
-        maxNumHands: 2,
-        modelComplexity: 1,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
-      });
-
-      hands.onResults((results) => {
-        if (!isActiveRef.current) return;
-
-        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-          setLandmarks(results.multiHandLandmarks);
-          setIsDetecting(true);
-        } else {
-          setLandmarks([]);
-          setIsDetecting(false);
-        }
-      });
-
-      handsRef.current = hands;
-
-      // Ensure model is ready
-      await hands.initialize();
-
-      // Initialize camera stream
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
-      });
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play();
-        };
-      }
-
-      // Start processing loop
-      const process = async () => {
-        if (!isActiveRef.current || !handsRef.current) return;
-        if (videoRef.current && videoRef.current.readyState >= 2) {
-          try {
-            await handsRef.current.send({ image: videoRef.current });
-          } catch (e) {
-            console.error('MediaPipe send error:', e);
-          }
-        }
-        if (isActiveRef.current) {
-          requestAnimationFrame(process);
-        }
-      };
-
-      process();
-      setIsLoaded(true);
-    } catch (err) {
-      console.error('MediaPipe init error:', err);
-      setError(err.message);
-    }
-  }, []);
+  const isProcessingRef = useRef(false);
+  const lastUpdateRef = useRef(0);
 
   const stopMediaPipe = useCallback(() => {
     isActiveRef.current = false;
     if (videoRef.current && videoRef.current.srcObject) {
-      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+      const tracks = videoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
       videoRef.current.srcObject = null;
     }
-    if (handsRef.current) {
-      try {
-        handsRef.current.close();
-      } catch (e) {
-        console.error('Error closing MediaPipe:', e);
+    setData(prev => ({ ...prev, isDetecting: false, landmarks: [] }));
+  }, []);
+
+  const initMediaPipe = useCallback(async (videoElement) => {
+    if (!videoElement || isActiveRef.current) return;
+    videoRef.current = videoElement;
+    isActiveRef.current = true;
+
+    try {
+      if (!globalHandsPromise) {
+        globalHandsPromise = (async () => {
+          const scripts = [
+            'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js',
+            'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js'
+          ];
+
+          for (const src of scripts) {
+            if (!document.querySelector(`script[src="${src}"]`)) {
+              await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.crossOrigin = 'anonymous';
+                script.onload = resolve;
+                script.onerror = () => reject(new Error(`Failed to load ${src}`));
+                document.head.appendChild(script);
+              });
+            }
+          }
+
+          const Hands = window.Hands;
+          const instance = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
+          });
+
+          instance.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 0,
+            minDetectionConfidence: 0.4,
+            minTrackingConfidence: 0.4
+          });
+
+          await instance.initialize();
+          return instance;
+        })();
       }
-      handsRef.current = null;
+
+      globalHandsInstance = await globalHandsPromise;
+      if (!isActiveRef.current) return;
+
+      globalHandsInstance.onResults((results) => {
+        if (!isActiveRef.current) return;
+        
+        const now = Date.now();
+        if (now - lastUpdateRef.current < 40) return; // 25 FPS stable
+        lastUpdateRef.current = now;
+
+        const found = results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
+        
+        // Single atomic state update
+        setData(prev => ({
+          ...prev,
+          isDetecting: found,
+          landmarks: found ? [...results.multiHandLandmarks] : [],
+          isLoaded: true
+        }));
+      });
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+      });
+
+      if (videoRef.current && isActiveRef.current) {
+        videoRef.current.srcObject = stream;
+        try { await videoRef.current.play(); } catch (e) {}
+      }
+
+      const process = async () => {
+        if (!isActiveRef.current || !globalHandsInstance) return;
+        if (videoRef.current && videoRef.current.readyState >= 2 && !isProcessingRef.current) {
+          isProcessingRef.current = true;
+          try { await globalHandsInstance.send({ image: videoRef.current }); } catch (e) {}
+          isProcessingRef.current = false;
+        }
+        if (isActiveRef.current) requestAnimationFrame(process);
+      };
+
+      process();
+    } catch (err) {
+      if (isActiveRef.current) {
+        setData(prev => ({ ...prev, error: err.message, isLoaded: true }));
+      }
     }
-    setIsLoaded(false);
-    setIsDetecting(false);
-    setLandmarks([]);
   }, []);
 
   useEffect(() => {
@@ -120,10 +124,7 @@ export const useMediaPipe = () => {
   }, [stopMediaPipe]);
 
   return {
-    isLoaded,
-    isDetecting,
-    error,
-    landmarks,
+    ...data,
     initMediaPipe,
     stopMediaPipe
   };

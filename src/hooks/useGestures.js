@@ -7,16 +7,14 @@ const isFingerExt = (tip, pip) => tip.y < pip.y;
 
 export const useGestures = (multiHandLandmarks) => {
   const [gestures, setGestures] = useState([]);
-  const lastPinchStates = useRef([]);
-  const pinchTimeouts = useRef([]);
 
   useEffect(() => {
     if (!multiHandLandmarks || multiHandLandmarks.length === 0) {
-      setGestures([]);
+      if (gestures.length > 0) setGestures([]);
       return;
     }
 
-    const newGestures = multiHandLandmarks.map((landmarks, index) => {
+    const newGestures = multiHandLandmarks.map((landmarks) => {
       const thumbTip = landmarks[4];
       const indexTip = landmarks[8];
       const indexPip = landmarks[6];
@@ -29,7 +27,6 @@ export const useGestures = (multiHandLandmarks) => {
 
       // 1. PINCH
       const dist = distance2D(thumbTip, indexTip);
-      const pinchStrength = Math.max(0, 1 - dist / PINCH_THRESHOLD);
       const isPinchingRaw = dist < PINCH_THRESHOLD;
 
       // 2. EXTENDED FINGERS
@@ -46,9 +43,8 @@ export const useGestures = (multiHandLandmarks) => {
         isPinching: isPinchingRaw,
         isOpenHand,
         isIndexUp,
-        pinchStrength,
-        indexTip, // Helpful for collision
-        landmarks // Keep for visualization
+        indexTip,
+        landmarks // Useful for collision in piano
       };
     });
 

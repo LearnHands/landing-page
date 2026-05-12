@@ -59,37 +59,52 @@ const PianoModule = ({ cursors, gestures, addPoints }) => {
     }, 400);
   };
 
+  const keyRects = useRef([]);
+
+  // Cache rects only once or when window resizes
   useEffect(() => {
+    const updateRects = () => {
+      const black = Array.from(document.querySelectorAll('.black-key')).map(el => ({
+        note: el.dataset.note,
+        rect: el.getBoundingClientRect(),
+        isBlack: true
+      }));
+      const white = Array.from(document.querySelectorAll('.white-key')).map(el => ({
+        note: el.dataset.note,
+        rect: el.getBoundingClientRect(),
+        isBlack: false
+      }));
+      keyRects.current = [...black, ...white];
+    };
+    
+    // Delay slightly to ensure DOM is ready
+    const timer = setTimeout(updateRects, 500);
+    window.addEventListener('resize', updateRects);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateRects);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (gestures.length === 0) return;
+
     gestures.forEach((handGestures) => {
-      // 10 key landmarks (all finger tips)
-      const tips = [4, 8, 12, 16, 20].map(idx => handGestures.landmarks[idx]);
+      // Use ALL 21 landmarks for "whole hand" detection
+      const allPoints = handGestures.landmarks || [];
 
-      tips.forEach(tip => {
-        if (!tip) return;
+      allPoints.forEach(point => {
+        if (!point) return;
         
-        const x = (1 - tip.x) * window.innerWidth;
-        const y = tip.y * window.innerHeight;
+        const x = (1 - point.x) * window.innerWidth;
+        const y = point.y * window.innerHeight;
 
-        if (y < window.innerHeight * 0.45) {
-          // Detect black keys first (they are on top)
-          const blackKeyRects = document.querySelectorAll('.black-key');
-          let foundBlack = false;
-          blackKeyRects.forEach(el => {
-            const rect = el.getBoundingClientRect();
-            if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-              playNote(el.dataset.note);
-              foundBlack = true;
-            }
-          });
-
-          if (!foundBlack) {
-            const whiteKeyRects = document.querySelectorAll('.white-key');
-            whiteKeyRects.forEach(el => {
-              const rect = el.getBoundingClientRect();
-              if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-                playNote(el.dataset.note);
-              }
-            });
+        // Check against cached rects
+        for (const item of keyRects.current) {
+          const r = item.rect;
+          if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+            playNote(item.note);
+            if (item.isBlack) break;
           }
         }
       });
@@ -98,7 +113,8 @@ const PianoModule = ({ cursors, gestures, addPoints }) => {
 
   return (
     <div className="w-full h-full flex flex-col select-none">
-      <div className="w-full h-[45vh] bg-black/60 p-2 border-b border-white/10 backdrop-blur-xl relative flex">
+      {/* Piano Keys (Top) */}
+      <div className="w-full h-[35vh] bg-black/60 p-2 border-b border-white/10 backdrop-blur-xl relative flex">
         {whiteKeys.map((n, i) => (
           <div key={n} className="flex-1 relative flex">
             {/* White Key */}
@@ -113,7 +129,7 @@ const PianoModule = ({ cursors, gestures, addPoints }) => {
               <div className="text-[10px] font-black uppercase text-black/40">{n}</div>
             </div>
 
-            {/* Black Key (Absolute relative to white key) */}
+            {/* Black Key */}
             {BLACK_NOTES[n.replace('2', '')] && (
               <div 
                 data-note={n.includes('2') ? BLACK_NOTES[n.replace('2', '')] + '2' : BLACK_NOTES[n]}
@@ -127,7 +143,8 @@ const PianoModule = ({ cursors, gestures, addPoints }) => {
           </div>
         ))}
       </div>
-      
+
+      {/* Visual Feedback Area (Bottom) */}
       <div className="flex-1 flex flex-col items-center justify-center relative overflow-hidden pointer-events-none">
         <AnimatePresence>
             {activeNotes.size > 0 ? (
@@ -146,7 +163,7 @@ const PianoModule = ({ cursors, gestures, addPoints }) => {
             ) : (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.4 }} className="text-center space-y-6">
                     <div className="text-8xl animate-bounce-slow">🎹</div>
-                    <div className="text-3xl font-display font-black text-white/40 italic tracking-[0.2em] uppercase">Usa ambas manos para tocar</div>
+                    <div className="text-3xl font-display font-black text-white/40 italic tracking-[0.2em] uppercase">Usa tu mano para tocar</div>
                 </motion.div>
             )}
         </AnimatePresence>

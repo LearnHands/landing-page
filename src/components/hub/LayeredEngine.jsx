@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
-const LayeredEngine = ({ children, videoRef, landmarks, cursors, gestures, isLoaded }) => {
+const LayeredEngine = ({ children, videoRef, landmarks, cursors, gestures, isLoaded, error }) => {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -10,26 +10,21 @@ const LayeredEngine = ({ children, videoRef, landmarks, cursors, gestures, isLoa
     const ctx = canvasRef.current.getContext('2d');
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
-    // Draw landmarks for all hands
-    if (window.drawConnectors && landmarks.length > 0) {
+    // Draw landmarks for all hands with safety checks
+    if (landmarks.length > 0) {
       landmarks.forEach((handLandmarks, i) => {
-        const color = i === 0 ? '#7C3AED' : '#EC4899'; // Hand 1 Violet, Hand 2 Pink
-        window.drawConnectors(ctx, handLandmarks, window.HAND_CONNECTIONS, { color, lineWidth: 4 });
-        window.drawLandmarks(ctx, handLandmarks, { color: '#06B6D4', lineWidth: 1, radius: 2 });
+        const color = i === 0 ? '#7C3AED' : '#EC4899';
+        
+        if (window.drawConnectors && window.HAND_CONNECTIONS) {
+          window.drawConnectors(ctx, handLandmarks, window.HAND_CONNECTIONS, { color, lineWidth: 4 });
+        }
+        
+        if (window.drawLandmarks) {
+          window.drawLandmarks(ctx, handLandmarks, { color: '#06B6D4', lineWidth: 1, radius: 2 });
+        }
       });
     }
   }, [landmarks, isLoaded]);
-
-  // Load drawing utils
-  useEffect(() => {
-    if (!window.drawConnectors) {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js';
-      script.crossOrigin = 'anonymous';
-      script.onload = () => console.log('Drawing utils loaded');
-      document.head.appendChild(script);
-    }
-  }, []);
 
   return (
     <div className="fixed inset-0 bg-[#03030b] overflow-hidden">
@@ -82,11 +77,27 @@ const LayeredEngine = ({ children, videoRef, landmarks, cursors, gestures, isLoa
         </div>
       ))}
 
-      {/* Loading Screen */}
-      {!isLoaded && (
-        <div className="absolute inset-0 z-[100] bg-[#03030b] flex flex-col items-center justify-center">
-          <div className="w-24 h-24 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin mb-8" />
-          <p className="text-purple-400 font-black uppercase tracking-[0.4em] text-[10px] italic">Iniciando Sensor IA...</p>
+      {/* Loading & Error Screen */}
+      {(!isLoaded || error) && (
+        <div className="absolute inset-0 z-[100] bg-[#03030b] flex flex-col items-center justify-center p-12 text-center">
+          {error ? (
+            <div className="space-y-6 max-w-md">
+              <div className="text-6xl mb-4">⚠️</div>
+              <h2 className="text-2xl font-display font-black text-red-500 uppercase italic">Error de Inicialización</h2>
+              <p className="text-white/40 text-xs font-bold leading-relaxed">{error}</p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="px-8 py-3 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center">
+              <div className="w-24 h-24 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin mb-8" />
+              <p className="text-purple-400 font-black uppercase tracking-[0.4em] text-[10px] italic">Iniciando Sensor IA...</p>
+            </div>
+          )}
         </div>
       )}
     </div>

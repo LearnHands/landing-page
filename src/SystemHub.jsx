@@ -21,41 +21,64 @@ const SCORE_KEY = 'edumotion_score';
 const HandButton = ({ children, onClick, cursors = [], dwellMs = 1000, className = "", variant = "purple" }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [progress, setProgress] = useState(0);
-  const startTime = useRef(null);
-  const timerRef = useRef(null);
   const buttonRef = useRef(null);
+  const lastTimeRef = useRef(null);
+  const frameRef = useRef(null);
 
+  // We use a dedicated frame loop for the button hit detection to be independent of state delays
   useEffect(() => {
-    if (cursors.length === 0 || !buttonRef.current) {
-      if (isHovered) reset();
-      return;
-    }
-    
-    const rect = buttonRef.current.getBoundingClientRect();
-    const over = cursors.some(cursor => 
-      cursor.x >= rect.left && cursor.x <= rect.right && 
-      cursor.y >= rect.top && cursor.y <= rect.bottom
-    );
+    const checkHit = () => {
+      if (!buttonRef.current) {
+        frameRef.current = requestAnimationFrame(checkHit);
+        return;
+      }
+      
+      const rect = buttonRef.current.getBoundingClientRect();
+      // Add a 20px "padding" to the hit area to make it easier to hit
+      const hitRect = {
+        left: rect.left - 20,
+        right: rect.right + 20,
+        top: rect.top - 20,
+        bottom: rect.bottom + 20
+      };
 
-    if (over && !isHovered) {
-      setIsHovered(true);
-      startTime.current = Date.now();
-      timerRef.current = setInterval(() => {
-        const elapsed = Date.now() - startTime.current;
-        const p = Math.min(elapsed / dwellMs, 1);
-        setProgress(p);
-        if (p >= 1) {
-          clearInterval(timerRef.current);
-          onClick?.();
-          reset();
+      const isOver = cursors.some(c => 
+        c.x >= hitRect.left && c.x <= hitRect.right && 
+        c.y >= hitRect.top && c.y <= hitRect.bottom
+      );
+
+      if (isOver) {
+        if (!isHovered) {
+          setIsHovered(true);
+          lastTimeRef.current = Date.now();
+        } else {
+          const now = Date.now();
+          const delta = now - lastTimeRef.current;
+          const newProgress = Math.min(progress + delta / dwellMs, 1);
+          setProgress(newProgress);
+          
+          if (newProgress >= 1) {
+            onClick?.();
+            setIsHovered(false);
+            setProgress(0);
+          }
+          lastTimeRef.current = now;
         }
-      }, 16);
-    } else if (!over && isHovered) {
-      reset();
-    }
-    
-    return () => { if(timerRef.current) clearInterval(timerRef.current); };
-  }, [cursors, isHovered, dwellMs, onClick]);
+      } else {
+        if (isHovered) {
+          // Slow reset instead of instant to be more forgiving
+          const newProgress = Math.max(progress - 0.05, 0);
+          setProgress(newProgress);
+          if (newProgress === 0) setIsHovered(false);
+        }
+      }
+
+      frameRef.current = requestAnimationFrame(checkHit);
+    };
+
+    frameRef.current = requestAnimationFrame(checkHit);
+    return () => cancelAnimationFrame(frameRef.current);
+  }, [cursors, isHovered, progress, dwellMs, onClick]);
 
   const reset = () => {
     setIsHovered(false);
@@ -90,7 +113,7 @@ const SystemHub = ({ onExit }) => {
   const [score, setScore] = useState(() => parseInt(localStorage.getItem(SCORE_KEY) || '0', 10));
   
   const videoRef = useRef(null);
-  const { isLoaded, landmarks, initMediaPipe } = useMediaPipe();
+  const { isLoaded, landmarks, initMediaPipe, error } = useMediaPipe();
   const gestures = useGestures(landmarks);
   const cursors = useHandCursor(landmarks);
 
@@ -109,7 +132,7 @@ const SystemHub = ({ onExit }) => {
   };
 
   return (
-    <LayeredEngine videoRef={videoRef} landmarks={landmarks} cursors={cursors} gestures={gestures} isLoaded={isLoaded}>
+    <LayeredEngine videoRef={videoRef} landmarks={landmarks} cursors={cursors} gestures={gestures} isLoaded={isLoaded} error={error}>
       <AnimatePresence mode="wait">
         {view === 'HOME' && (
           <motion.div key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="flex-1 flex flex-col items-center justify-center p-20">
@@ -121,10 +144,10 @@ const SystemHub = ({ onExit }) => {
               </div>
               
               <div className="flex flex-col items-center gap-6 w-full">
-                <HandButton cursors={cursors} onClick={() => setView('MENU')} className="px-16 py-8 text-xl w-full max-w-sm" dwellMs={1200}>
-                  <Play fill="white" size={24} /> COMENZAR
+                <HandButton cursors={cursors} onClick={() => setView('MENU')} className="px-20 py-10 text-2xl w-full max-w-md h-32" dwellMs={800}>
+                  <Play fill="white" size={32} /> COMENZAR
                 </HandButton>
-                <HandButton cursors={cursors} onClick={onExit} className="px-8 py-4 text-[10px]" variant="red" dwellMs={800}>
+                <HandButton cursors={cursors} onClick={onExit} className="px-8 py-4 text-[10px]" variant="red" dwellMs={600}>
                   <LogOut size={14} /> SALIR AL PORTAL
                 </HandButton>
               </div>

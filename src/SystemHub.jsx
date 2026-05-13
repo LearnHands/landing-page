@@ -15,10 +15,11 @@ import PianoModule from './components/hub/modules/PianoModule';
 import DrawingModule from './components/hub/modules/DrawingModule';
 import PuzzleModule from './components/hub/modules/PuzzleModule';
 import ShapesModule from './components/hub/modules/ShapesModule';
+import SolarModule from './components/hub/modules/SolarModule';
 import CalibrationOverlay from './components/hub/CalibrationOverlay';
 
 import puceLogo from './assets/puce.png';
-import { Circle, Square } from 'lucide-react';
+import { Circle, Square, Globe } from 'lucide-react';
 
 const SCORE_KEY = 'edumotion_score';
 const CALIBRATION_KEY = 'edumotion_calibration';
@@ -42,10 +43,10 @@ const HandButton = ({ children, onClick, cursors = [], dwellMs = 1000, className
       const rect = buttonRef.current.getBoundingClientRect();
       // Add a 20px "padding" to the hit area to make it easier to hit
       const hitRect = {
-        left: rect.left - 20,
-        right: rect.right + 20,
-        top: rect.top - 20,
-        bottom: rect.bottom + 20
+        left: rect.left - 40,
+        right: rect.right + 40,
+        top: rect.top - 40,
+        bottom: rect.bottom + 40
       };
 
       const isOver = cursors.some(c =>
@@ -212,6 +213,7 @@ const SystemHub = ({ onExit }) => {
               <MenuCard icon={<Music size={48} />} title="Piano" color="cyan" cursors={cursors} onSelect={() => { setView('GAME'); setCurrentGame('PIANO'); }} />
               <MenuCard icon={<Puzzle size={48} />} title="Puzzle" color="orange" cursors={cursors} onSelect={() => { setView('GAME'); setCurrentGame('PUZZLE'); }} />
               <MenuCard icon={<div className="flex gap-1 items-end"><Circle size={40} className="text-white"/><Square size={30} className="text-white/40"/></div>} title="Colores" color="emerald" cursors={cursors} onSelect={() => { setView('GAME'); setCurrentGame('COLORES'); }} />
+              <MenuCard icon={<Globe size={48} />} title="Solar" color="cyan" cursors={cursors} onSelect={() => { setView('GAME'); setCurrentGame('SOLAR'); }} />
             </div>
           </motion.div>
         )}
@@ -248,6 +250,7 @@ const SystemHub = ({ onExit }) => {
               {currentGame === 'PIANO' && <PianoModule cursors={cursors} gestures={gestures} addPoints={addPoints} />}
               {currentGame === 'PUZZLE' && <PuzzleModule cursors={cursors} gestures={gestures} addPoints={addPoints} />}
               {currentGame === 'COLORES' && <ShapesModule cursors={cursors} gestures={gestures} addPoints={addPoints} />}
+              {currentGame === 'SOLAR' && <SolarModule cursors={cursors} gestures={gestures} addPoints={addPoints} />}
             </div>
           </motion.div>
         )}

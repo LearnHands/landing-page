@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
-const BASE_LERP = 0.05; // Más suavizado para precisión
-const FAST_LERP = 0.15; // Menos salto en movimientos rápidos
+const BASE_LERP = 0.12; // Un poco más reactivo
+const FAST_LERP = 0.35; // Más veloz en desplazamientos largos
 
 export const useHandCursor = (multiHandLandmarks, calibration = null) => {
   const [cursors, setCursors] = useState([]);

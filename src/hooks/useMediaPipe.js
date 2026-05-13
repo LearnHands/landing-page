@@ -61,9 +61,9 @@ export const useMediaPipe = () => {
 
           instance.setOptions({
             maxNumHands: 1,
-            modelComplexity: 0,
-            minDetectionConfidence: 0.4,
-            minTrackingConfidence: 0.4
+            modelComplexity: 1,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
           });
 
           await instance.initialize();
@@ -78,9 +78,10 @@ export const useMediaPipe = () => {
         if (!isActiveRef.current) return;
         
         const now = Date.now();
-        if (now - lastUpdateRef.current < 40) return; // 25 FPS stable
+        if (now - lastUpdateRef.current < 16) return; // 60 FPS support
         lastUpdateRef.current = now;
 
+        if (!results) return;
         const found = results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
         
         // Single atomic state update

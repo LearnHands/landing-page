@@ -81,7 +81,7 @@ const LayeredEngine = ({ children, videoRef, landmarks, cursors, gestures, isLoa
               {gestures[i]?.isPinching && <div className="w-2 h-2 bg-purple-600 rounded-full animate-ping" />}
             </motion.div>
             
-            <div className="absolute top-12 left-1/2 -translate-x-1/2 whitespace-nowrap text-[8px] font-black uppercase tracking-widest text-white italic drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] bg-black/20 px-2 py-1 rounded-md backdrop-blur-sm">
+            <div className="absolute -top-14 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-white italic drop-shadow-xl bg-black/40 px-3 py-1.5 rounded-xl backdrop-blur-md border border-white/10">
               {gestures[i]?.isIndexUp ? '☝️ Dibujando' : gestures[i]?.isOpenHand ? '✋ Pausa' : gestures[i]?.isPinching ? '🤏 Agarrar' : `🖐️ Mano ${i + 1}`}
             </div>
           </div>

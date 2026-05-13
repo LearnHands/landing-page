@@ -24,15 +24,14 @@ import { Circle, Square, Globe } from 'lucide-react';
 const SCORE_KEY = 'edumotion_score';
 const CALIBRATION_KEY = 'edumotion_calibration';
 
-// --- COMPONENTE HAND BUTTON (DWELL CLICK) ---
-const HandButton = ({ children, onClick, cursors = [], dwellMs = 1000, className = "", variant = "purple" }) => {
+// --- COMPONENTE HAND BUTTON (DWELL CLICK & PINCH) ---
+const HandButton = ({ children, onClick, cursors = [], gestures = [], dwellMs = 1000, className = "", variant = "purple" }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [progress, setProgress] = useState(0);
   const buttonRef = useRef(null);
   const lastTimeRef = useRef(null);
   const frameRef = useRef(null);
 
-  // We use a dedicated frame loop for the button hit detection to be independent of state delays
   useEffect(() => {
     const checkHit = () => {
       if (!buttonRef.current) {
@@ -41,7 +40,6 @@ const HandButton = ({ children, onClick, cursors = [], dwellMs = 1000, className
       }
 
       const rect = buttonRef.current.getBoundingClientRect();
-      // Add a 20px "padding" to the hit area to make it easier to hit
       const hitRect = {
         left: rect.left - 40,
         right: rect.right + 40,
@@ -49,12 +47,32 @@ const HandButton = ({ children, onClick, cursors = [], dwellMs = 1000, className
         bottom: rect.bottom + 40
       };
 
-      const isOver = cursors.some(c =>
-        c.x >= hitRect.left && c.x <= hitRect.right &&
-        c.y >= hitRect.top && c.y <= hitRect.bottom
-      );
+      let isPointingOver = false;
+      let isPinchingOver = false;
 
-      if (isOver) {
+      cursors.forEach((c, i) => {
+        const isOver = c.x >= hitRect.left && c.x <= hitRect.right &&
+                       c.y >= hitRect.top && c.y <= hitRect.bottom;
+        
+        if (isOver) {
+          isPointingOver = true; // Any hover triggers dwell click (since cursor is the index finger)
+          const g = gestures[i];
+          if (g?.isPinching) isPinchingOver = true; // Pinch triggers instant click
+        }
+      });
+
+      if (isPinchingOver) {
+        onClick?.();
+        setIsHovered(false);
+        setProgress(0);
+        // Add a small delay before next frame to avoid double clicks
+        setTimeout(() => {
+          frameRef.current = requestAnimationFrame(checkHit);
+        }, 500);
+        return;
+      }
+
+      if (isPointingOver) {
         if (!isHovered) {
           setIsHovered(true);
           lastTimeRef.current = Date.now();
@@ -73,7 +91,6 @@ const HandButton = ({ children, onClick, cursors = [], dwellMs = 1000, className
         }
       } else {
         if (isHovered) {
-          // Slow reset instead of instant to be more forgiving
           const newProgress = Math.max(progress - 0.05, 0);
           setProgress(newProgress);
           if (newProgress === 0) setIsHovered(false);
@@ -85,12 +102,7 @@ const HandButton = ({ children, onClick, cursors = [], dwellMs = 1000, className
 
     frameRef.current = requestAnimationFrame(checkHit);
     return () => cancelAnimationFrame(frameRef.current);
-  }, [cursors, isHovered, progress, dwellMs, onClick]);
-
-  const reset = () => {
-    setIsHovered(false);
-    setProgress(0);
-  };
+  }, [cursors, gestures, isHovered, progress, dwellMs, onClick]);
 
   const variants = {
     purple: "from-purple-600 to-indigo-600",
@@ -127,7 +139,8 @@ const SystemHub = ({ onExit }) => {
   const videoRef = useRef(null);
   const { isLoaded, landmarks, initMediaPipe, error } = useMediaPipe();
   const gestures = useGestures(landmarks);
-  const cursors = useHandCursor(landmarks, calibration);
+  // Apply calibration ONLY in Pizarra module, otherwise 1:1 mapping
+  const cursors = useHandCursor(landmarks, currentGame === 'PIZARRA' ? calibration : null);
 
   useEffect(() => {
     initMediaPipe(videoRef.current);
@@ -159,8 +172,10 @@ const SystemHub = ({ onExit }) => {
     });
   };
 
+  const activeCursors = isCalibrating ? [] : cursors;
+
   return (
-    <LayeredEngine videoRef={videoRef} landmarks={landmarks} cursors={cursors} gestures={gestures} isLoaded={isLoaded} error={error}>
+    <LayeredEngine videoRef={videoRef} landmarks={landmarks} cursors={activeCursors} gestures={gestures} isLoaded={isLoaded} error={error}>
       <AnimatePresence>
         {isCalibrating && <CalibrationOverlay landmarks={landmarks} onComplete={handleCalibrationComplete} />}
       </AnimatePresence>
@@ -183,14 +198,14 @@ const SystemHub = ({ onExit }) => {
               </div>
 
               <div className="flex flex-col items-center gap-6 w-full">
-                <HandButton cursors={cursors} onClick={() => setView('MENU')} className="px-20 py-10 text-2xl w-full max-w-md h-32" dwellMs={800}>
+                <HandButton cursors={cursors} gestures={gestures} onClick={() => setView('MENU')} className="px-20 py-10 text-2xl w-full max-w-md h-32" dwellMs={800}>
                   <Play fill="white" size={32} /> COMENZAR
                 </HandButton>
                 <div className="flex gap-4">
-                  <HandButton cursors={cursors} onClick={() => setIsCalibrating(true)} className="px-6 py-3 text-[9px]" variant="cyan" dwellMs={600}>
+                  <HandButton cursors={cursors} gestures={gestures} onClick={() => setIsCalibrating(true)} className="px-6 py-3 text-[9px]" variant="cyan" dwellMs={600}>
                     <RefreshCcw size={12} /> Recalibrar
                   </HandButton>
-                  <HandButton cursors={cursors} onClick={onExit} className="px-6 py-3 text-[9px]" variant="red" dwellMs={600}>
+                  <HandButton cursors={cursors} gestures={gestures} onClick={onExit} className="px-6 py-3 text-[9px]" variant="red" dwellMs={600}>
                     <LogOut size={12} /> Salir
                   </HandButton>
                 </div>
@@ -202,18 +217,18 @@ const SystemHub = ({ onExit }) => {
         {view === 'MENU' && (
           <motion.div key="menu" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.1 }} className="flex-1 flex flex-col items-center justify-center p-12">
             <div className="absolute top-12 left-12 flex items-center gap-6">
-              <HandButton cursors={cursors} onClick={() => setView('HOME')} className="p-4" variant="red" dwellMs={600}><ArrowLeft /></HandButton>
+              <HandButton cursors={cursors} gestures={gestures} onClick={() => setView('HOME')} className="p-4" variant="red" dwellMs={600}><ArrowLeft /></HandButton>
               <img src={puceLogo} alt="PUCE Logo" className="h-10 w-auto opacity-60" />
             </div>
 
             <h2 className="text-5xl font-display font-black mb-16 italic text-gradient tracking-tighter uppercase underline decoration-purple-500/30 decoration-8 underline-offset-[16px]">Módulos de Aprendizaje</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 w-full max-w-6xl">
-              <MenuCard icon={<Palette size={48} />} title="Pizarra" color="purple" cursors={cursors} onSelect={() => { setView('GAME'); setCurrentGame('PIZARRA'); }} />
-              <MenuCard icon={<Music size={48} />} title="Piano" color="cyan" cursors={cursors} onSelect={() => { setView('GAME'); setCurrentGame('PIANO'); }} />
-              <MenuCard icon={<Puzzle size={48} />} title="Puzzle" color="orange" cursors={cursors} onSelect={() => { setView('GAME'); setCurrentGame('PUZZLE'); }} />
-              <MenuCard icon={<div className="flex gap-1 items-end"><Circle size={40} className="text-white"/><Square size={30} className="text-white/40"/></div>} title="Colores" color="emerald" cursors={cursors} onSelect={() => { setView('GAME'); setCurrentGame('COLORES'); }} />
-              <MenuCard icon={<Globe size={48} />} title="Solar" color="cyan" cursors={cursors} onSelect={() => { setView('GAME'); setCurrentGame('SOLAR'); }} />
+            <div className="flex flex-wrap justify-center gap-12 w-full max-w-7xl">
+              <MenuCard icon={<Palette size={48} />} title="Pizarra" color="purple" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('PIZARRA'); }} />
+              <MenuCard icon={<Music size={48} />} title="Piano" color="cyan" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('PIANO'); }} />
+              <MenuCard icon={<Puzzle size={48} />} title="Puzzle" color="orange" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('PUZZLE'); }} />
+              <MenuCard icon={<div className="flex gap-1 items-end"><Circle size={40} className="text-white"/><Square size={30} className="text-white/40"/></div>} title="Colores" color="emerald" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('COLORES'); }} />
+              <MenuCard icon={<Globe size={48} />} title="Solar" color="cyan" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('SOLAR'); }} />
             </div>
           </motion.div>
         )}
@@ -223,7 +238,7 @@ const SystemHub = ({ onExit }) => {
             {/* Game Header */}
             <div className="h-20 glass-dark border-b border-white/10 flex items-center justify-between px-12 z-[100]">
               <div className="flex items-center gap-8">
-                <HandButton cursors={cursors} onClick={() => setView('MENU')} className="p-4" variant="red" dwellMs={800}><ArrowLeft size={20} /></HandButton>
+                <HandButton cursors={cursors} gestures={gestures} onClick={() => setView('MENU')} className="p-4" variant="red" dwellMs={800}><ArrowLeft size={20} /></HandButton>
                 <div className="flex items-center gap-4">
                   <img src={puceLogo} alt="PUCE Logo" className="h-8 w-auto" />
                   <div className="flex flex-col">

@@ -61,9 +61,9 @@ export const useMediaPipe = () => {
 
           instance.setOptions({
             maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
+            modelComplexity: 0,
+            minDetectionConfidence: 0.4,
+            minTrackingConfidence: 0.4
           });
 
           await instance.initialize();

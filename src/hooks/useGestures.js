@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useMemo, useRef } from 'react';
 
 const PINCH_THRESHOLD = 0.08;
 const GESTURE_HISTORY_LIMIT = 3; // Number of frames to confirm a gesture
@@ -7,19 +7,15 @@ const distance2D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const isFingerExt = (tip, pip) => tip.y < pip.y;
 
 export const useGestures = (multiHandLandmarks) => {
-  const [gestures, setGestures] = useState([]);
-  const historyRef = useRef([]); // Stores last N frames of raw gestures
+  const historyRef = useRef([]);
 
-  useEffect(() => {
+  const gestures = useMemo(() => {
     if (!multiHandLandmarks || multiHandLandmarks.length === 0) {
-      if (gestures.length > 0) {
-        setGestures([]);
-        historyRef.current = [];
-      }
-      return;
+      historyRef.current = [];
+      return [];
     }
 
-    const currentFrameGestures = multiHandLandmarks.map((landmarks, i) => {
+    const currentFrameGestures = multiHandLandmarks.map((landmarks) => {
       const thumbTip = landmarks[4];
       const indexTip = landmarks[8];
       const indexPip = landmarks[6];
@@ -56,8 +52,8 @@ export const useGestures = (multiHandLandmarks) => {
       historyRef.current.shift();
     }
 
-    // Debounced result: only return true if gesture is consistent in history
-    const debouncedGestures = currentFrameGestures.map((raw, handIdx) => {
+    // Debounced result
+    return currentFrameGestures.map((raw, handIdx) => {
       const history = historyRef.current.map(h => h[handIdx]).filter(Boolean);
       
       const countPinch = history.filter(h => h.isPinchingRaw).length;
@@ -74,8 +70,6 @@ export const useGestures = (multiHandLandmarks) => {
         landmarks: raw.landmarks
       };
     });
-
-    setGestures(debouncedGestures);
   }, [multiHandLandmarks]);
 
   return gestures;

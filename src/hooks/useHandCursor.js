@@ -1,19 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { useMemo } from 'react';
 
 const BASE_LERP = 0.12; // Un poco más reactivo
 const FAST_LERP = 0.35; // Más veloz en desplazamientos largos
 
 export const useHandCursor = (multiHandLandmarks, calibration = null) => {
-  const [cursors, setCursors] = useState([]);
-  const lerpPositions = useRef([]);
-
-  useEffect(() => {
+  const cursors = useMemo(() => {
     if (!multiHandLandmarks || multiHandLandmarks.length === 0) {
-      if (cursors.length > 0) setCursors([]);
-      return;
+      return [];
     }
 
-    const nextCursors = multiHandLandmarks.map((landmarks, i) => {
+    return multiHandLandmarks.map((landmarks) => {
       const indexTip = landmarks[8];
       if (!indexTip) return { x: 0, y: 0, isVisible: false };
 
@@ -21,43 +17,32 @@ export const useHandCursor = (multiHandLandmarks, calibration = null) => {
       let normX = 1 - indexTip.x;
       let normY = indexTip.y;
 
-      // 2. Calibration Mapping (with safety for division by zero)
+      // 2. Calibration Mapping (Bulletproof)
       if (calibration) {
-        const { minX, minY, maxX, maxY } = calibration;
+        // Ensure min is actually min and max is actually max
+        const minX = Math.min(calibration.minX, calibration.maxX);
+        const maxX = Math.max(calibration.minX, calibration.maxX);
+        const minY = Math.min(calibration.minY, calibration.maxY);
+        const maxY = Math.max(calibration.minY, calibration.maxY);
+
         const dx = maxX - minX;
         const dy = maxY - minY;
         
-        if (Math.abs(dx) > 0.001) normX = (normX - minX) / dx;
-        if (Math.abs(dy) > 0.001) normY = (normY - minY) / dy;
+        if (dx > 0.05) normX = (normX - minX) / dx;
+        if (dy > 0.05) normY = (normY - minY) / dy;
       }
 
-      // 3. Scale to Screen (Clamped)
-      const targetX = Math.max(0, Math.min(1, normX)) * window.innerWidth;
-      const targetY = Math.max(0, Math.min(1, normY)) * window.innerHeight;
+      // 3. Scale to Screen (Clamped to avoid getting stuck outside bounds)
+      const targetX = Math.max(-0.1, Math.min(1.1, normX)) * window.innerWidth;
+      const targetY = Math.max(-0.1, Math.min(1.1, normY)) * window.innerHeight;
 
-      if (!lerpPositions.current[i]) {
-        lerpPositions.current[i] = { x: targetX, y: targetY };
-      } else {
-        // Adaptive Smoothing (LERP)
-        const dx = Math.abs(targetX - lerpPositions.current[i].x);
-        const dy = Math.abs(targetY - lerpPositions.current[i].y);
-        const distance = Math.hypot(dx, dy);
-        
-        // Increase LERP factor if moving fast to reduce lag
-        const factor = distance > 100 ? FAST_LERP : BASE_LERP;
-        
-        lerpPositions.current[i].x += (targetX - lerpPositions.current[i].x) * factor;
-        lerpPositions.current[i].y += (targetY - lerpPositions.current[i].y) * factor;
-      }
-
+      // We pass the raw target coordinates. Smoothness should be handled by Framer Motion in LayeredEngine, not by state loops.
       return {
-        x: lerpPositions.current[i].x,
-        y: lerpPositions.current[i].y,
+        x: targetX,
+        y: targetY,
         isVisible: true
       };
     });
-
-    setCursors(nextCursors);
   }, [multiHandLandmarks, calibration]);
 
   return cursors;

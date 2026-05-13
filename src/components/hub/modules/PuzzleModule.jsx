@@ -91,7 +91,15 @@ const PuzzleModule = ({ cursors, gestures, addPoints }) => {
     });
 
     if (piecesUpdated) setTiles(nextTiles);
-    setDraggingStates(newDraggingStates);
+    
+    // Fix Infinite Loop: Only update draggingStates if it actually changed
+    const statesChanged = 
+      Object.keys(newDraggingStates).length !== Object.keys(draggingStates).length ||
+      Object.keys(newDraggingStates).some(k => newDraggingStates[k] !== draggingStates[k]);
+      
+    if (statesChanged) {
+      setDraggingStates(newDraggingStates);
+    }
 
     if (nextTiles.length > 0 && nextTiles.every(t => t.placed) && !isWon) {
       setIsWon(true);

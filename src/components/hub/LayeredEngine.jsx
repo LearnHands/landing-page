@@ -32,7 +32,7 @@ const LayeredEngine = ({ children, videoRef, landmarks, cursors, gestures, isLoa
       <div className="absolute inset-0 z-0">
         <video 
           ref={videoRef} 
-          className="w-full h-full object-cover opacity-30 grayscale brightness-75 scale-x-[-1]" 
+          className="w-full h-full object-fill opacity-60 grayscale brightness-90 scale-x-[-1]" 
           autoPlay 
           playsInline 
           muted
@@ -40,14 +40,14 @@ const LayeredEngine = ({ children, videoRef, landmarks, cursors, gestures, isLoa
       </div>
 
       {/* 2. Overlay Layer (Glassmorphism) */}
-      <div className="absolute inset-0 z-10 bg-black/40 backdrop-blur-[2px] pointer-events-none" />
+      <div className="absolute inset-0 z-10 bg-black/20 backdrop-blur-[2px] pointer-events-none" />
 
       {/* 3. Landmarks Layer (Neon) */}
       <canvas 
         ref={canvasRef} 
         width="1280" 
         height="720" 
-        className="absolute inset-0 w-full h-full object-cover z-20 pointer-events-none scale-x-[-1] opacity-60" 
+        className="absolute inset-0 w-full h-full object-fill z-20 pointer-events-none scale-x-[-1] opacity-60" 
       />
 
       {/* 4. UI Layer (Transparent Content) */}

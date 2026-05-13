@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Target, CheckCircle, RefreshCcw } from 'lucide-react';
 
 const CalibrationOverlay = ({ landmarks = [], onComplete }) => {
-  const [step, setStep] = useState(1); // Saltar intro, ir directo a esquina
+  const [step, setStep] = useState(0); // Volver a intro para permitir "Saltar"
   const [bounds, setBounds] = useState({ minX: 0.1, minY: 0.1, maxX: 0.9, maxY: 0.9 });
   const [progress, setProgress] = useState(0);
 
@@ -73,14 +73,39 @@ const CalibrationOverlay = ({ landmarks = [], onComplete }) => {
             <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">{steps[step].desc}</p>
           </div>
 
+          {step === 0 && (
+            <div className="flex flex-col gap-4 items-center">
+              <button 
+                onClick={() => setStep(1)}
+                className="px-12 py-5 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-3xl font-black uppercase tracking-widest text-xs hover:scale-105 transition-all shadow-xl w-full"
+              >
+                Comenzar Calibración
+              </button>
+              <button 
+                onClick={() => onComplete(null)}
+                className="text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-white/60 transition-colors"
+              >
+                Omitir por ahora
+              </button>
+            </div>
+          )}
+
           {(step === 1 || step === 2) && (
-            <div className="space-y-3">
-               <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+            <div className="space-y-4">
+               <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
                   <motion.div className="h-full bg-purple-500" style={{ width: `${progress * 100}%` }} />
                </div>
-               <p className="text-[8px] font-black uppercase tracking-[0.3em] text-purple-400 animate-pulse">
-                  Capturando...
-               </p>
+               <div className="flex justify-between items-center px-2">
+                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-purple-400 animate-pulse">
+                    Capturando...
+                 </p>
+                 <button 
+                   onClick={() => onComplete(null)}
+                   className="text-[8px] font-black uppercase tracking-widest text-white/20 hover:text-white/60 transition-colors"
+                 >
+                   Cancelar
+                 </button>
+               </div>
             </div>
           )}
           

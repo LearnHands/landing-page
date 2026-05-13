@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Palette, Music, Puzzle, Play, ArrowLeft, Trash2, Trophy, Monitor, Power, LogOut
+  Palette, Music, Puzzle, Play, ArrowLeft, Trash2, Trophy, Monitor, Power, LogOut, RefreshCcw
 } from 'lucide-react';
 
 // Hooks
@@ -14,8 +14,12 @@ import LayeredEngine from './components/hub/LayeredEngine';
 import PianoModule from './components/hub/modules/PianoModule';
 import DrawingModule from './components/hub/modules/DrawingModule';
 import PuzzleModule from './components/hub/modules/PuzzleModule';
+import CalibrationOverlay from './components/hub/CalibrationOverlay';
+
+import puceLogo from './assets/puce.png';
 
 const SCORE_KEY = 'edumotion_score';
+const CALIBRATION_KEY = 'edumotion_calibration';
 
 // --- COMPONENTE HAND BUTTON (DWELL CLICK) ---
 const HandButton = ({ children, onClick, cursors = [], dwellMs = 1000, className = "", variant = "purple" }) => {
@@ -83,7 +87,6 @@ const HandButton = ({ children, onClick, cursors = [], dwellMs = 1000, className
   const reset = () => {
     setIsHovered(false);
     setProgress(0);
-    if (timerRef.current) clearInterval(timerRef.current);
   };
 
   const variants = {
@@ -111,15 +114,32 @@ const SystemHub = ({ onExit }) => {
   const [view, setView] = useState('HOME'); // HOME, MENU, GAME
   const [currentGame, setCurrentGame] = useState(null);
   const [score, setScore] = useState(() => parseInt(localStorage.getItem(SCORE_KEY) || '0', 10));
+  const [calibration, setCalibration] = useState(() => {
+    const saved = localStorage.getItem(CALIBRATION_KEY);
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [isCalibrating, setIsCalibrating] = useState(false);
   
   const videoRef = useRef(null);
   const { isLoaded, landmarks, initMediaPipe, error } = useMediaPipe();
   const gestures = useGestures(landmarks);
-  const cursors = useHandCursor(landmarks);
+  const cursors = useHandCursor(landmarks, calibration);
 
   useEffect(() => {
     initMediaPipe(videoRef.current);
   }, [initMediaPipe]);
+
+  useEffect(() => {
+    if (isLoaded && !calibration && !isCalibrating) {
+      setIsCalibrating(true);
+    }
+  }, [isLoaded, calibration, isCalibrating]);
+
+  const handleCalibrationComplete = (newBounds) => {
+    setCalibration(newBounds);
+    localStorage.setItem(CALIBRATION_KEY, JSON.stringify(newBounds));
+    setIsCalibrating(false);
+  };
 
   const level = useMemo(() => Math.floor(score / 100) + 1, [score]);
 
@@ -133,9 +153,20 @@ const SystemHub = ({ onExit }) => {
 
   return (
     <LayeredEngine videoRef={videoRef} landmarks={landmarks} cursors={cursors} gestures={gestures} isLoaded={isLoaded} error={error}>
+      <AnimatePresence>
+        {isCalibrating && <CalibrationOverlay landmarks={landmarks} onComplete={handleCalibrationComplete} />}
+      </AnimatePresence>
+
       <AnimatePresence mode="wait">
         {view === 'HOME' && (
           <motion.div key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="flex-1 flex flex-col items-center justify-center p-20">
+            {/* Logo PUCE */}
+            <div className="absolute top-12 left-12 flex items-center gap-4">
+              <img src={puceLogo} alt="PUCE Logo" className="h-12 w-auto drop-shadow-lg" />
+              <div className="h-8 w-[1px] bg-white/20" />
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Sede Santo Domingo</span>
+            </div>
+
             <div className="glass p-16 rounded-[80px] border border-white/10 flex flex-col items-center gap-12 text-center max-w-2xl w-full shadow-2xl relative">
               <div className="absolute -top-12 w-24 h-24 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-3xl flex items-center justify-center text-5xl shadow-2xl animate-bounce-slow border border-white/20">🖐️</div>
               <div className="space-y-4">
@@ -147,9 +178,14 @@ const SystemHub = ({ onExit }) => {
                 <HandButton cursors={cursors} onClick={() => setView('MENU')} className="px-20 py-10 text-2xl w-full max-w-md h-32" dwellMs={800}>
                   <Play fill="white" size={32} /> COMENZAR
                 </HandButton>
-                <HandButton cursors={cursors} onClick={onExit} className="px-8 py-4 text-[10px]" variant="red" dwellMs={600}>
-                  <LogOut size={14} /> SALIR AL PORTAL
-                </HandButton>
+                <div className="flex gap-4">
+                  <HandButton cursors={cursors} onClick={() => setIsCalibrating(true)} className="px-6 py-3 text-[9px]" variant="cyan" dwellMs={600}>
+                    <RefreshCcw size={12} /> Recalibrar
+                  </HandButton>
+                  <HandButton cursors={cursors} onClick={onExit} className="px-6 py-3 text-[9px]" variant="red" dwellMs={600}>
+                    <LogOut size={12} /> Salir
+                  </HandButton>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -157,8 +193,9 @@ const SystemHub = ({ onExit }) => {
 
         {view === 'MENU' && (
           <motion.div key="menu" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.1 }} className="flex-1 flex flex-col items-center justify-center p-12">
-            <div className="absolute top-12 left-12">
+            <div className="absolute top-12 left-12 flex items-center gap-6">
                <HandButton cursors={cursors} onClick={() => setView('HOME')} className="p-4" variant="red" dwellMs={600}><ArrowLeft/></HandButton>
+               <img src={puceLogo} alt="PUCE Logo" className="h-10 w-auto opacity-60" />
             </div>
             
             <h2 className="text-5xl font-display font-black mb-16 italic text-gradient tracking-tighter uppercase underline decoration-purple-500/30 decoration-8 underline-offset-[16px]">Módulos de Aprendizaje</h2>
@@ -177,9 +214,12 @@ const SystemHub = ({ onExit }) => {
             <div className="h-20 glass-dark border-b border-white/10 flex items-center justify-between px-12 z-[100]">
               <div className="flex items-center gap-8">
                 <HandButton cursors={cursors} onClick={() => setView('MENU')} className="p-4" variant="red" dwellMs={800}><ArrowLeft size={20}/></HandButton>
-                <div className="flex flex-col">
-                    <span className="text-[12px] font-black uppercase tracking-[0.4em] text-purple-400 italic">EduMotion Hub</span>
-                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Módulo: {currentGame}</span>
+                <div className="flex items-center gap-4">
+                  <img src={puceLogo} alt="PUCE Logo" className="h-8 w-auto" />
+                  <div className="flex flex-col">
+                      <span className="text-[12px] font-black uppercase tracking-[0.4em] text-purple-400 italic">EduMotion Hub</span>
+                      <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Módulo: {currentGame}</span>
+                  </div>
                 </div>
               </div>
               
@@ -196,7 +236,7 @@ const SystemHub = ({ onExit }) => {
             </div>
 
             <div className="flex-1 relative">
-              {currentGame === 'PIZARRA' && <DrawingModule cursors={cursors} gestures={gestures} addPoints={addPoints} />}
+              {currentGame === 'PIZARRA' && <DrawingModule cursor={cursors[0] || {}} gestures={gestures[0] || {}} addPoints={addPoints} />}
               {currentGame === 'PIANO' && <PianoModule cursors={cursors} gestures={gestures} addPoints={addPoints} />}
               {currentGame === 'PUZZLE' && <PuzzleModule cursors={cursors} gestures={gestures} addPoints={addPoints} />}
             </div>

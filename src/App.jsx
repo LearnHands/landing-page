@@ -5,6 +5,7 @@ import {
   Palette, Music, Puzzle, Heart, Zap, Sparkles, LogIn, Monitor, ChevronRight
 } from 'lucide-react';
 import SystemHub from './SystemHub';
+import puceLogo from './assets/puce.png';
 
 // --- CONFIGURACIÓN ---
 const githubLink = "https://github.com/GrupoUnoEmprendimiento/EduMotion";
@@ -25,16 +26,20 @@ const App = () => {
       <Routes>
         <Route path="/" element={
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="relative z-10">
-            {/* Fondo Decorativo */}
+            {/* Fondo Decorativo Mejorado */}
             <div className="fixed inset-0 z-0 pointer-events-none">
-              <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full" />
-              <div className="absolute bottom-[10%] right-[5%] w-[35%] h-[35%] bg-cyan-600/10 blur-[120px] rounded-full" />
+              <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-purple-600/10 blur-[140px] rounded-full animate-pulse" />
+              <div className="absolute bottom-[10%] right-[5%] w-[45%] h-[45%] bg-cyan-600/10 blur-[140px] rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
             </div>
 
             <nav className="fixed top-0 w-full z-50 glass-dark py-4 px-8 flex justify-between items-center border-b border-white/5">
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center text-xl shadow-lg">🖐️</div>
-                <span className="font-display text-2xl tracking-tighter font-black uppercase tracking-[0.1em]">EduMotion</span>
+              <div className="flex items-center gap-6">
+                <img src={puceLogo} alt="PUCE Logo" className="h-10 w-auto" />
+                <div className="h-6 w-[1px] bg-white/10 hidden sm:block" />
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center text-lg shadow-lg">🖐️</div>
+                  <span className="font-display text-xl tracking-tighter font-black uppercase tracking-[0.1em]">EduMotion</span>
+                </div>
               </div>
               <div className="hidden md:flex gap-8 text-xs font-black uppercase tracking-widest text-white/40 items-center">
                 <a href="#mision" className="hover:text-white transition-colors">Misión</a>

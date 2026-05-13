@@ -57,24 +57,35 @@ const LayeredEngine = ({ children, videoRef, landmarks, cursors, gestures, isLoa
 
       {/* 5. Virtual Cursors Layer */}
       {cursors.map((cursor, i) => (
-        <div 
-          key={i}
-          className="fixed z-[10000] pointer-events-none transform -translate-x-1/2 -translate-y-1/2"
-          style={{ left: cursor.x, top: cursor.y }}
-        >
+        <React.Fragment key={i}>
+          {/* Cursor Trail (Ghost effect) */}
           <motion.div 
-            animate={{ 
-              scale: gestures[i]?.isPinching ? 0.8 : 1,
-              backgroundColor: gestures[i]?.isPinching ? 'rgba(255, 255, 255, 0.8)' : (i === 0 ? 'rgba(124, 58, 237, 0.2)' : 'rgba(236, 72, 153, 0.2)'),
-              borderColor: gestures[i]?.isPinching ? '#ffffff' : (i === 0 ? '#7C3AED' : '#EC4899'),
-              boxShadow: gestures[i]?.isPinching ? '0 0 30px white' : (i === 0 ? '0 0 15px rgba(124, 58, 237, 0.5)' : '0 0 15px rgba(236, 72, 153, 0.5)')
-            }}
-            className="w-10 h-10 rounded-full border-2 transition-all"
+            animate={{ left: cursor.x, top: cursor.y }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200, mass: 0.5 }}
+            className="fixed z-[9999] pointer-events-none transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/5 border border-white/10"
           />
-          <div className="absolute top-12 left-1/2 -translate-x-1/2 whitespace-nowrap text-[8px] font-black uppercase tracking-widest text-white/60 italic drop-shadow-md">
-            {gestures[i]?.isIndexUp ? '☝️ Dibujando' : gestures[i]?.isOpenHand ? '✋ Pausa' : gestures[i]?.isPinching ? '🤏 Pinza' : `🖐️ Mano ${i + 1}`}
+          
+          <div 
+            className="fixed z-[10000] pointer-events-none transform -translate-x-1/2 -translate-y-1/2"
+            style={{ left: cursor.x, top: cursor.y }}
+          >
+            <motion.div 
+              animate={{ 
+                scale: gestures[i]?.isPinching ? 0.8 : 1,
+                backgroundColor: gestures[i]?.isPinching ? 'rgba(255, 255, 255, 0.9)' : (i === 0 ? 'rgba(124, 58, 237, 0.3)' : 'rgba(236, 72, 153, 0.3)'),
+                borderColor: gestures[i]?.isPinching ? '#ffffff' : (i === 0 ? '#7C3AED' : '#EC4899'),
+                boxShadow: gestures[i]?.isPinching ? '0 0 40px white' : (i === 0 ? '0 0 20px rgba(124, 58, 237, 0.6)' : '0 0 20px rgba(236, 72, 153, 0.6)')
+              }}
+              className="w-10 h-10 rounded-full border-2 transition-all flex items-center justify-center"
+            >
+              {gestures[i]?.isPinching && <div className="w-2 h-2 bg-purple-600 rounded-full animate-ping" />}
+            </motion.div>
+            
+            <div className="absolute top-12 left-1/2 -translate-x-1/2 whitespace-nowrap text-[8px] font-black uppercase tracking-widest text-white italic drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] bg-black/20 px-2 py-1 rounded-md backdrop-blur-sm">
+              {gestures[i]?.isIndexUp ? '☝️ Dibujando' : gestures[i]?.isOpenHand ? '✋ Pausa' : gestures[i]?.isPinching ? '🤏 Agarrar' : `🖐️ Mano ${i + 1}`}
+            </div>
           </div>
-        </div>
+        </React.Fragment>
       ))}
 
       {/* Loading & Error Screen */}

@@ -184,10 +184,10 @@ const SystemHub = ({ onExit }) => {
         {view === 'HOME' && (
           <motion.div key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="flex-1 flex flex-col items-center justify-center p-20">
             {/* Logo PUCE */}
-            <div className="absolute top-12 left-12 flex items-center gap-4">
-              <img src={puceLogo} alt="PUCE Logo" className="h-12 w-auto drop-shadow-lg" />
-              <div className="h-8 w-[1px] bg-white/20" />
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Sede Quito</span>
+            <div className="absolute top-12 left-12 flex items-center gap-6">
+              <img src={puceLogo} alt="PUCE Logo" className="h-20 w-auto drop-shadow-lg" />
+              <div className="h-12 w-[1px] bg-white/20" />
+              <span className="text-xs font-black uppercase tracking-[0.3em] text-white/40">Sede Quito</span>
             </div>
 
             <div className="glass p-16 rounded-[80px] border border-white/10 flex flex-col items-center gap-12 text-center max-w-2xl w-full shadow-2xl relative">
@@ -216,19 +216,23 @@ const SystemHub = ({ onExit }) => {
 
         {view === 'MENU' && (
           <motion.div key="menu" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.1 }} className="flex-1 flex flex-col items-center justify-center p-12">
-            <div className="absolute top-12 left-12 flex items-center gap-6">
+            <div className="absolute top-12 left-12 flex items-center gap-8">
               <HandButton cursors={cursors} gestures={gestures} onClick={() => setView('HOME')} className="p-4" variant="red" dwellMs={600}><ArrowLeft /></HandButton>
-              <img src={puceLogo} alt="PUCE Logo" className="h-10 w-auto opacity-60" />
+              <img src={puceLogo} alt="PUCE Logo" className="h-16 w-auto drop-shadow-2xl" />
             </div>
 
             <h2 className="text-5xl font-display font-black mb-16 italic text-gradient tracking-tighter uppercase underline decoration-purple-500/30 decoration-8 underline-offset-[16px]">Módulos de Aprendizaje</h2>
 
-            <div className="flex flex-wrap justify-center gap-12 w-full max-w-7xl">
-              <MenuCard icon={<Palette size={48} />} title="Pizarra" color="purple" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('PIZARRA'); }} />
-              <MenuCard icon={<Music size={48} />} title="Piano" color="cyan" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('PIANO'); }} />
-              <MenuCard icon={<Puzzle size={48} />} title="Puzzle" color="orange" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('PUZZLE'); }} />
-              <MenuCard icon={<div className="flex gap-1 items-end"><Circle size={40} className="text-white"/><Square size={30} className="text-white/40"/></div>} title="Colores" color="emerald" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('COLORES'); }} />
-              <MenuCard icon={<Globe size={48} />} title="Solar" color="cyan" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('SOLAR'); }} />
+            <div className="w-full max-w-6xl space-y-12">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-12 justify-items-center">
+                <MenuCard icon={<Palette size={48} />} title="Pizarra" color="purple" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('PIZARRA'); }} />
+                <MenuCard icon={<Music size={48} />} title="Piano" color="cyan" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('PIANO'); }} />
+                <MenuCard icon={<Puzzle size={48} />} title="Puzzle" color="orange" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('PUZZLE'); }} />
+              </div>
+              <div className="flex flex-wrap justify-center gap-12">
+                <MenuCard icon={<div className="flex gap-1 items-end"><Circle size={40} className="text-white"/><Square size={30} className="text-white/40"/></div>} title="Colores" color="emerald" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('COLORES'); }} />
+                <MenuCard icon={<Globe size={48} />} title="Solar" color="cyan" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('SOLAR'); }} />
+              </div>
             </div>
           </motion.div>
         )}
@@ -240,7 +244,7 @@ const SystemHub = ({ onExit }) => {
               <div className="flex items-center gap-8">
                 <HandButton cursors={cursors} gestures={gestures} onClick={() => setView('MENU')} className="p-4" variant="red" dwellMs={800}><ArrowLeft size={20} /></HandButton>
                 <div className="flex items-center gap-4">
-                  <img src={puceLogo} alt="PUCE Logo" className="h-8 w-auto" />
+                  <img src={puceLogo} alt="PUCE Logo" className="h-12 w-auto" />
                   <div className="flex flex-col">
                     <span className="text-[12px] font-black uppercase tracking-[0.4em] text-purple-400 italic">EduMotion Hub</span>
                     <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Módulo: {currentGame}</span>
@@ -288,14 +292,14 @@ const SystemHub = ({ onExit }) => {
 };
 
 const MenuCard = ({ icon, title, color, onSelect, cursors }) => (
-  <div className="group relative">
-    <HandButton cursors={cursors} onClick={onSelect} className="w-full aspect-square rounded-[60px] flex flex-col items-center justify-center gap-8" variant={color} dwellMs={1000}>
-      <div className="p-8 bg-white/10 rounded-3xl group-hover:scale-110 transition-transform duration-500 shadow-inner">
+  <div className="group relative w-64 md:w-72">
+    <HandButton cursors={cursors} onClick={onSelect} className="w-full aspect-square rounded-[60px] flex flex-col items-center justify-center gap-10" variant={color} dwellMs={1000}>
+      <div className="p-10 bg-white/10 rounded-3xl group-hover:scale-110 transition-transform duration-500 shadow-inner ring-1 ring-white/20">
         {icon}
       </div>
-      <div className="flex flex-col items-center gap-2">
-        <span className="font-display text-2xl font-black italic tracking-tight uppercase">{title}</span>
-        <div className="w-12 h-1 bg-white/20 rounded-full" />
+      <div className="flex flex-col items-center gap-3">
+        <span className="font-display text-3xl font-black italic tracking-tight uppercase">{title}</span>
+        <div className="w-16 h-1.5 bg-white/30 rounded-full group-hover:w-24 transition-all duration-500" />
       </div>
     </HandButton>
   </div>

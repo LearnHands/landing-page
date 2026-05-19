@@ -16,10 +16,11 @@ import DrawingModule from './components/hub/modules/DrawingModule';
 import PuzzleModule from './components/hub/modules/PuzzleModule';
 import ShapesModule from './components/hub/modules/ShapesModule';
 import SolarModule from './components/hub/modules/SolarModule';
+import BricksModule from './components/hub/modules/BricksModule';
 import CalibrationOverlay from './components/hub/CalibrationOverlay';
 
 import puceLogo from './assets/puce.png';
-import { Circle, Square, Globe } from 'lucide-react';
+import { Circle, Square, Globe, Gamepad2 } from 'lucide-react';
 
 const SCORE_KEY = 'edumotion_score';
 const CALIBRATION_KEY = 'edumotion_calibration';
@@ -223,15 +224,14 @@ const SystemHub = ({ onExit }) => {
 
             <h2 className="text-5xl font-display font-black mb-16 italic text-gradient tracking-tighter uppercase underline decoration-purple-500/30 decoration-8 underline-offset-[16px]">Módulos de Aprendizaje</h2>
 
-            <div className="w-full max-w-6xl space-y-12">
+            <div className="w-full max-w-6xl">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-12 justify-items-center">
                 <MenuCard icon={<Palette size={48} />} title="Pizarra" color="purple" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('PIZARRA'); }} />
                 <MenuCard icon={<Music size={48} />} title="Piano" color="cyan" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('PIANO'); }} />
                 <MenuCard icon={<Puzzle size={48} />} title="Puzzle" color="orange" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('PUZZLE'); }} />
-              </div>
-              <div className="flex flex-wrap justify-center gap-12">
                 <MenuCard icon={<div className="flex gap-1 items-end"><Circle size={40} className="text-white"/><Square size={30} className="text-white/40"/></div>} title="Colores" color="emerald" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('COLORES'); }} />
                 <MenuCard icon={<Globe size={48} />} title="Solar" color="cyan" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('SOLAR'); }} />
+                <MenuCard icon={<Gamepad2 size={48} />} title="Balls Crush" color="orange" cursors={cursors} gestures={gestures} onSelect={() => { setView('GAME'); setCurrentGame('BRICKS'); }} />
               </div>
             </div>
           </motion.div>
@@ -270,6 +270,7 @@ const SystemHub = ({ onExit }) => {
               {currentGame === 'PUZZLE' && <PuzzleModule cursors={cursors} gestures={gestures} addPoints={addPoints} />}
               {currentGame === 'COLORES' && <ShapesModule cursors={cursors} gestures={gestures} addPoints={addPoints} />}
               {currentGame === 'SOLAR' && <SolarModule cursors={cursors} gestures={gestures} addPoints={addPoints} />}
+              {currentGame === 'BRICKS' && <BricksModule cursors={cursors} gestures={gestures} addPoints={addPoints} />}
             </div>
           </motion.div>
         )}

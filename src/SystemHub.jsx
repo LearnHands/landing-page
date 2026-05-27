@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Palette, Music, Puzzle, Play, ArrowLeft, Trash2, Trophy, LogOut, BookOpen, Circle, Square, Globe, Gamepad2
+  Palette, Music, Puzzle, Play, ArrowLeft, Trash2, Trophy, LogOut, BookOpen, Circle, Square, Globe, Gamepad2, Compass, Shield, Award
 } from 'lucide-react';
 
 // Hooks
@@ -16,6 +16,8 @@ import ShapesModule from './components/hub/modules/ShapesModule';
 import SolarModule from './components/hub/modules/SolarModule';
 import BricksModule from './components/hub/modules/BricksModule';
 import SyllablesModule from './components/hub/modules/SyllablesModule';
+import EcoGuardianModule from './components/hub/modules/EcoGuardianModule';
+import MathAbacusModule from './components/hub/modules/MathAbacusModule';
 import HandButton from './components/hub/HandButton';
 
 import puceLogo from './assets/puce.png';
@@ -92,9 +94,11 @@ const SystemHub = ({ onExit }) => {
                 <MenuCard icon={<Music />} title="Piano" color="cyan" onSelect={() => { setView('GAME'); setCurrentGame('PIANO'); }} />
                 <MenuCard icon={<Puzzle />} title="Puzzle" color="orange" onSelect={() => { setView('GAME'); setCurrentGame('PUZZLE'); }} />
                 <MenuCard icon={<div className="flex gap-1 items-end"><Circle size={40} className="text-white"/><Square size={30} className="text-white/40"/></div>} title="Colores" color="emerald" onSelect={() => { setView('GAME'); setCurrentGame('COLORES'); }} />
-                <MenuCard icon={<Globe />} title="Solar" color="cyan" onSelect={() => { setView('GAME'); setCurrentGame('SOLAR'); }} />
+                <MenuCard icon={<Compass />} title="Constelación" color="cyan" onSelect={() => { setView('GAME'); setCurrentGame('SOLAR'); }} />
                 <MenuCard icon={<Gamepad2 />} title="Balls Crush" color="orange" onSelect={() => { setView('GAME'); setCurrentGame('BRICKS'); }} />
                 <MenuCard icon={<BookOpen />} title="Sílabas" color="purple" onSelect={() => { setView('GAME'); setCurrentGame('SILABAS'); }} />
+                <MenuCard icon={<Shield />} title="Eco-Clasificador" color="emerald" onSelect={() => { setView('GAME'); setCurrentGame('ECO'); }} />
+                <MenuCard icon={<Award />} title="Ábaco" color="orange" onSelect={() => { setView('GAME'); setCurrentGame('ABACUS'); }} />
               </div>
             </div>
           </motion.div>
@@ -135,6 +139,8 @@ const SystemHub = ({ onExit }) => {
               {currentGame === 'SOLAR' && <SolarModule addPoints={addPoints} />}
               {currentGame === 'BRICKS' && <BricksModule addPoints={addPoints} />}
               {currentGame === 'SILABAS' && <SyllablesModule addPoints={addPoints} />}
+              {currentGame === 'ECO' && <EcoGuardianModule addPoints={addPoints} />}
+              {currentGame === 'ABACUS' && <MathAbacusModule addPoints={addPoints} />}
             </div>
           </motion.div>
         )}

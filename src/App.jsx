@@ -8,7 +8,7 @@ import SystemHub from './SystemHub';
 import puceLogo from './assets/puce.png';
 
 // --- CONFIGURACIÓN ---
-const githubLink = "https://github.com/GrupoUnoEmprendimiento/EduMotion";
+const githubLink = "https://github.com/GrupoUnoEmprendimiento/LearnHands";
 
 // Icono de GitHub Manual
 const GithubIcon = ({ size = 20 }) => (
@@ -38,7 +38,7 @@ const App = () => {
                 <div className="h-6 w-[1px] bg-white/10 hidden sm:block" />
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center text-lg shadow-lg">🖐️</div>
-                  <span className="font-display text-xl tracking-tighter font-black uppercase tracking-[0.1em]">EduMotion</span>
+                  <span className="font-display text-xl tracking-tighter font-black uppercase tracking-[0.1em]">LearnHands</span>
                 </div>
               </div>
               <div className="hidden md:flex gap-8 text-xs font-black uppercase tracking-widest text-white/40 items-center">
@@ -68,7 +68,7 @@ const App = () => {
               {/* Demo Preview Section */}
               <section className="w-full max-w-4xl rounded-[40px] overflow-hidden border border-white/10 glass-dark p-1 relative shadow-2xl shadow-purple-500/10">
                   <div className="bg-white/5 rounded-[38px] overflow-hidden p-12 text-center">
-                      <div className="text-xs font-black text-purple-400 uppercase tracking-widest mb-6 italic">EduMotion AI Engine v2.0</div>
+                      <div className="text-xs font-black text-purple-400 uppercase tracking-widest mb-6 italic">LearnHands AI Engine v2.0</div>
                       <div className="aspect-video bg-black/40 rounded-3xl border border-white/5 flex items-center justify-center relative overflow-hidden group">
                           <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 to-cyan-500/10 animate-pulse" />
                           <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity }} className="text-9xl drop-shadow-[0_0_20px_rgba(168,85,247,0.3)] z-10">🖐️</motion.div>

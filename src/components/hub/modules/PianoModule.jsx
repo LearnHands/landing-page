@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const OCTAVES = 2;
@@ -10,7 +10,7 @@ const FREQS = {
   'Do2': 523.3, 'Do#2': 554.4, 'Re2': 587.3, 'Re#2': 622.3, 'Mi2': 659.3, 'Fa2': 698.5, 'Fa#2': 740.0, 'Sol2': 784.0, 'Sol#2': 830.6, 'La2': 880.0, 'La#2': 932.3, 'Si2': 987.8
 };
 
-const PianoModule = ({ cursors, gestures, addPoints }) => {
+const PianoModule = memo(({ addPoints, videoRef }) => {
   const [activeNotes, setActiveNotes] = useState(new Set());
   const audioCtx = useRef(null);
   const oscillators = useRef({});
@@ -61,7 +61,7 @@ const PianoModule = ({ cursors, gestures, addPoints }) => {
 
   const keyRects = useRef([]);
 
-  // Cache rects only once or when window resizes
+  // Cache rects on load/resize
   useEffect(() => {
     const updateRects = () => {
       const black = Array.from(document.querySelectorAll('.black-key')).map(el => ({
@@ -77,8 +77,7 @@ const PianoModule = ({ cursors, gestures, addPoints }) => {
       keyRects.current = [...black, ...white];
     };
     
-    // Delay slightly to ensure DOM is ready
-    const timer = setTimeout(updateRects, 500);
+    const timer = setTimeout(updateRects, 600);
     window.addEventListener('resize', updateRects);
     return () => {
       clearTimeout(timer);
@@ -86,30 +85,59 @@ const PianoModule = ({ cursors, gestures, addPoints }) => {
     };
   }, []);
 
+  // Loop de colisión con landmarks (Decouplado de los renders de React)
   useEffect(() => {
-    if (gestures.length === 0) return;
+    let animId;
 
-    gestures.forEach((handGestures) => {
-      // Use ALL 21 landmarks for "whole hand" detection
-      const allPoints = handGestures.landmarks || [];
+    const checkPianoCollisions = () => {
+      const data = window.latestHandData || { gestures: [] };
+      const gestures = data.gestures || [];
 
-      allPoints.forEach(point => {
-        if (!point) return;
-        
-        const x = (1 - point.x) * window.innerWidth;
-        const y = point.y * window.innerHeight;
+      if (gestures.length > 0 && keyRects.current.length > 0) {
+        const videoEl = videoRef?.current;
+        const vw = videoEl?.videoWidth || 1280;
+        const vh = videoEl?.videoHeight || 720;
 
-        // Check against cached rects
-        for (const item of keyRects.current) {
-          const r = item.rect;
-          if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
-            playNote(item.note);
-            if (item.isBlack) break;
-          }
-        }
-      });
-    });
-  }, [gestures]);
+        const screenW = window.innerWidth;
+        const screenH = window.innerHeight;
+
+        const scale = Math.max(screenW / vw, screenH / vh);
+        const scaledW = vw * scale;
+        const scaledH = vh * scale;
+
+        const offsetX = (scaledW - screenW) / 2;
+        const offsetY = (scaledH - screenH) / 2;
+
+        gestures.forEach((handGestures) => {
+          const allPoints = handGestures.landmarks || [];
+
+          allPoints.forEach(point => {
+            if (!point) return;
+            
+            const normX = 1 - point.x;
+            const normY = point.y;
+
+            const x = normX * scaledW - offsetX;
+            const y = normY * scaledH - offsetY;
+
+            // Comparar contra los rects cacheados de las teclas
+            for (const item of keyRects.current) {
+              const r = item.rect;
+              if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+                playNote(item.note);
+                if (item.isBlack) break;
+              }
+            }
+          });
+        });
+      }
+
+      animId = requestAnimationFrame(checkPianoCollisions);
+    };
+
+    animId = requestAnimationFrame(checkPianoCollisions);
+    return () => cancelAnimationFrame(animId);
+  }, [videoRef]);
 
   return (
     <div className="w-full h-full flex flex-col select-none">
@@ -170,6 +198,6 @@ const PianoModule = ({ cursors, gestures, addPoints }) => {
       </div>
     </div>
   );
-};
+});
 
 export default PianoModule;

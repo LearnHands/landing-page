@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, RotateCcw, Volume2, VolumeX, Trophy, Heart, Zap, Sparkles } from 'lucide-react';
+import HandButton from '../HandButton';
 
 // --- CONFIGURACIÓN DE AUDIO SINTÉTICO (Web Audio API) ---
 class GameSoundController {
@@ -85,10 +86,6 @@ class GameSoundController {
 
 const soundCtrl = new GameSoundController();
 
-// --- CONSTANTES DEL JUEGO ---
-const V_WIDTH = 800;
-const V_HEIGHT = 800;
-
 const POWERUPS = {
   MULTI: { id: 'multi', label: 'Multi-Pelotas', color: '#10B981', symbol: '🍒' },
   FIRE: { id: 'fire', label: 'Bola de Fuego', color: '#EF4444', symbol: '🔥' },
@@ -96,7 +93,7 @@ const POWERUPS = {
   WIDE: { id: 'wide', label: 'Barra Gigante', color: '#3B82F6', symbol: '↔️' },
 };
 
-const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
+const BricksModule = memo(({ addPoints }) => {
   const canvasRef = useRef(null);
   
   // Estados del juego React
@@ -106,12 +103,12 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
   const [gameState, setGameState] = useState('START'); // START, PLAYING, GAMEOVER, WIN
   const [muted, setMuted] = useState(false);
   const [activePowerupLabel, setActivePowerupLabel] = useState(null);
-  const [baseSpeed, setBaseSpeed] = useState(7); // NUEVO: Control de velocidad
+  const [baseSpeed, setBaseSpeed] = useState(11); // Por defecto más ágil (11 en lugar de 7)
 
-  // Referencias mutables para el ciclo Canvas (evita renderizados excesivos)
+  // Referencias mutables para el ciclo Canvas (evita re-renders a 60 FPS)
   const stateRef = useRef({
     gameState: 'START',
-    paddle: { x: V_WIDTH / 2, y: V_HEIGHT - 60, w: 140, targetW: 140, h: 20 },
+    paddle: { x: window.innerWidth / 2, y: window.innerHeight - 80, w: 160, targetW: 160, h: 24 },
     balls: [],
     bricks: [],
     particles: [],
@@ -119,23 +116,17 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
     lasers: [],
     laserTimer: 0,
     powerupTimer: null,
-    activePowerups: {}, // { [type]: duration_ms }
+    activePowerups: {},
     score: 0,
     level: 1,
     lives: 3,
-    cursors: [],
-    gestures: [],
-    aimAngle: -Math.PI / 2, // Apuntado por defecto arriba
+    aimAngle: -Math.PI / 2,
     lastTime: 0,
     lastPointsAwarded: 0,
-    baseSpeed: 7, // NUEVO: Control de velocidad
+    baseSpeed: 11,
+    width: window.innerWidth,
+    height: window.innerHeight,
   });
-
-  // Mantener actualizadas las variables reactivas en las referencias mutables
-  useEffect(() => {
-    stateRef.current.cursors = cursors;
-    stateRef.current.gestures = gestures;
-  }, [cursors, gestures]);
 
   // Sincronizar estado mutable con el visual reactivo
   const syncReactState = useCallback(() => {
@@ -145,7 +136,6 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
     if (s.lives !== lives) setLives(s.lives);
     if (s.gameState !== gameState) setGameState(s.gameState);
 
-    // Actualizar etiquetas visuales de powerups activos
     const active = Object.keys(s.activePowerups).filter(k => s.activePowerups[k] > 0);
     if (active.length > 0) {
       const labels = active.map(k => POWERUPS[k]?.label).join(' + ');
@@ -179,13 +169,13 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
     });
   };
 
-  // --- GENERACIÓN DE LADRILLOS PARA EL NIVEL ---
-  const generateBricks = useCallback((lvl) => {
+  // --- GENERACIÓN DE LADRILLOS PARA EL NIVEL (Ajustado dinámicamente al ancho de la pantalla) ---
+  const generateBricks = useCallback((lvl, width) => {
     const cols = 8;
     const rows = Math.min(3 + lvl, 6);
-    const brickW = V_WIDTH / cols - 8;
-    const brickH = 26;
-    const startY = 120;
+    const brickW = width / cols - 12;
+    const brickH = 28;
+    const startY = 160; // Desplazado abajo para no tapar el marcador
     const newBricks = [];
 
     const colors = [
@@ -202,7 +192,6 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
       const rowColor = colors[r % colors.length];
 
       for (let c = 0; c < cols; c++) {
-        // Tipos de bloques especiales aleatorios (20% de probabilidad)
         let type = 'normal';
         const rand = Math.random();
         if (rand < 0.05) type = 'MULTI';
@@ -212,8 +201,8 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
 
         newBricks.push({
           id: `${r}-${c}-${Math.random()}`,
-          x: c * (brickW + 8) + 4,
-          y: startY + r * (brickH + 8),
+          x: c * (brickW + 12) + 6,
+          y: startY + r * (brickH + 12),
           w: brickW,
           h: brickH,
           hp: hp,
@@ -230,17 +219,27 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
   const initGame = useCallback((lvl = 1) => {
     soundCtrl.init();
     const s = stateRef.current;
+    
+    s.width = window.innerWidth;
+    s.height = window.innerHeight;
+
     s.gameState = 'PLAYING';
     s.level = lvl;
     s.score = lvl === 1 ? 0 : s.score;
     s.lives = lvl === 1 ? 3 : s.lives;
-    s.bricks = generateBricks(lvl);
+    s.bricks = generateBricks(lvl, s.width);
+    
+    s.paddle.y = s.height - 90;
+    s.paddle.w = 160;
+    s.paddle.targetW = 160;
+    s.paddle.h = 24;
+
     s.balls = [{
-      x: V_WIDTH / 2,
-      y: V_HEIGHT - 90,
+      x: s.width / 2,
+      y: s.paddle.y - 30,
       vx: 0,
       vy: 0,
-      radius: 10,
+      radius: 12,
       speed: s.baseSpeed,
       isDocked: true,
       isFire: false,
@@ -249,8 +248,6 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
     s.powerups = [];
     s.lasers = [];
     s.activePowerups = {};
-    s.paddle.w = 140;
-    s.paddle.targetW = 140;
     s.aimAngle = -Math.PI / 2;
 
     if (lvl > 1) {
@@ -264,40 +261,44 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
     let animId;
     const canvas = canvasRef.current;
     if (!canvas) return;
+    
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    stateRef.current.width = window.innerWidth;
+    stateRef.current.height = window.innerHeight;
+
     const ctx = canvas.getContext('2d');
 
     const updatePhysics = (dt) => {
       const s = stateRef.current;
       if (s.gameState !== 'PLAYING') return;
 
-      // Multiplicador de velocidad basado en el tiempo transcurrido (para mantener 60 FPS lógicos)
       const speedMultiplier = dt * 60; 
 
-      // 1. CONTROL DE PADDLE SUAVE CON GESTOS O MOUSE
+      // 1. LEER DATOS DE LA MANO DESDE WINDOW GLOBAL
+      const handData = window.latestHandData || { cursors: [], gestures: [] };
+      const cursors = handData.cursors || [];
+      const gestures = handData.gestures || [];
+
+      // CONTROL DE PADDLE SUAVE CON GESTOS (1:1 con la pantalla)
       let targetX = s.paddle.x;
-      if (s.cursors && s.cursors.length > 0) {
-        // Mapeo gestual: escalar de forma responsiva
-        const cX = (s.cursors[0].x / window.innerWidth) * V_WIDTH;
+      if (cursors && cursors.length > 0 && cursors[0]?.isVisible) {
+        const cX = cursors[0].x;
         
-        // Inicializar si no existe
         if (s.smoothedCursorX === undefined) {
           s.smoothedCursorX = cX;
         }
         
-        // Filtro paso bajo suave para eliminar saltos y vibración de MediaPipe
+        // Filtro suave para eliminar la vibración
         s.smoothedCursorX = s.smoothedCursorX * 0.75 + cX * 0.25;
-        
-        targetX = Math.max(s.paddle.w / 2, Math.min(V_WIDTH - s.paddle.w / 2, s.smoothedCursorX));
+        targetX = Math.max(s.paddle.w / 2, Math.min(s.width - s.paddle.w / 2, s.smoothedCursorX));
       } else {
-        // Resetear smoothedCursorX si se pierden los cursores
         s.smoothedCursorX = undefined;
       }
 
-      // Interpolar posición del paddle suave e independiente de los FPS
       const paddleLerp = 1 - Math.exp(-22 * dt);
       s.paddle.x += (targetX - s.paddle.x) * paddleLerp;
 
-      // Suavizar cambio de tamaño del paddle (powerups)
       const widthLerp = 1 - Math.exp(-8 * dt);
       s.paddle.w += (s.paddle.targetW - s.paddle.w) * widthLerp;
 
@@ -307,38 +308,31 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
           s.activePowerups[key] -= dt * 1000;
           if (s.activePowerups[key] <= 0) {
             delete s.activePowerups[key];
-            if (key === 'WIDE') s.paddle.targetW = 140;
+            if (key === 'WIDE') s.paddle.targetW = 160;
           }
         }
       });
 
-      // 2. DISPARAR PELOTA DESDE PADDLE (Aim & Shoot)
+      // 2. DISPARAR PELOTA DESDE PADDLE (Aim & Shoot con Pinza)
       const primaryBall = s.balls.find(b => b.isDocked);
       if (primaryBall) {
         primaryBall.x = s.paddle.x;
         primaryBall.y = s.paddle.y - primaryBall.radius - 2;
 
-        // Calcular ángulo de apuntado basado en posición de la mano
-        if (s.cursors && s.cursors.length > 0) {
-          const cX = (s.cursors[0].x / window.innerWidth) * V_WIDTH;
-          const cY = (s.cursors[0].y / window.innerHeight) * V_HEIGHT;
-          // Apuntar desde el centro del paddle hacia el cursor de la mano
+        if (cursors && cursors.length > 0 && cursors[0]?.isVisible) {
+          const cX = cursors[0].x;
+          const cY = cursors[0].y;
           const angle = Math.atan2(cY - primaryBall.y, cX - primaryBall.x);
-          // Limitar ángulo para no disparar excesivamente hacia los lados o hacia abajo
           if (angle < -Math.PI * 0.85 || angle > -Math.PI * 0.15) {
             s.aimAngle = angle;
           } else {
-            // Clampar a un rango superior
             s.aimAngle = Math.max(-Math.PI * 0.85, Math.min(-Math.PI * 0.15, angle));
           }
         } else {
-          // Si no hay manos, oscila el ángulo de forma atractiva
           s.aimAngle = -Math.PI / 2 + Math.sin(Date.now() / 300) * 0.8;
         }
 
-        // Detectar gesto de pellizco 🤏 para lanzar o dwell prolongado si no hay gestos
-        const isPinching = s.gestures && s.gestures[0]?.isPinching;
-        
+        const isPinching = gestures && gestures[0]?.isPinching;
         if (isPinching) {
           primaryBall.isDocked = false;
           primaryBall.vx = Math.cos(s.aimAngle) * primaryBall.speed;
@@ -351,38 +345,36 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
       s.balls.forEach((ball, bIdx) => {
         if (ball.isDocked) return;
 
-        // Propiedad Bola de Fuego
         ball.isFire = !!s.activePowerups.FIRE;
 
-        // Mover bola escalado por el multiplicador de velocidad
         ball.x += ball.vx * speedMultiplier;
         ball.y += ball.vy * speedMultiplier;
 
-        // Colisión con límites izquierdo y derecho
+        // Rebotes en los límites laterales de la pantalla
         if (ball.x - ball.radius < 0) {
           ball.x = ball.radius;
-          ball.vx = Math.abs(ball.vx); // Rebote limpio a la derecha
+          ball.vx = Math.abs(ball.vx);
           soundCtrl.playWall();
-        } else if (ball.x + ball.radius > V_WIDTH) {
-          ball.x = V_WIDTH - ball.radius;
-          ball.vx = -Math.abs(ball.vx); // Rebote limpio a la izquierda
+        } else if (ball.x + ball.radius > s.width) {
+          ball.x = s.width - ball.radius;
+          ball.vx = -Math.abs(ball.vx);
           soundCtrl.playWall();
         }
 
-        // Colisión con techo
+        // Rebote en el techo
         if (ball.y - ball.radius < 0) {
           ball.y = ball.radius;
-          ball.vy = Math.abs(ball.vy); // Rebote limpio abajo
+          ball.vy = Math.abs(ball.vy);
           soundCtrl.playWall();
         }
 
-        // Caída al fondo (Perder pelota)
-        if (ball.y - ball.radius > V_HEIGHT) {
+        // Caída por abajo
+        if (ball.y - ball.radius > s.height) {
           s.balls.splice(bIdx, 1);
           return;
         }
 
-        // Colisión con el Paddle
+        // Rebote en el Paddle
         const pTop = s.paddle.y;
         const pLeft = s.paddle.x - s.paddle.w / 2;
         const pRight = s.paddle.x + s.paddle.w / 2;
@@ -394,53 +386,44 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
           ball.x >= pLeft - 5 &&
           ball.x <= pRight + 5
         ) {
-          // Rebote dinámico basado en dónde golpea el paddle (ángulo variable)
-          const hitPos = (ball.x - s.paddle.x) / (s.paddle.w / 2); // -1.0 a 1.0
-          const angle = -Math.PI / 2 + hitPos * 1.0; // Desviación máxima de 1.0 radianes
+          const hitPos = (ball.x - s.paddle.x) / (s.paddle.w / 2);
+          const angle = -Math.PI / 2 + hitPos * 1.0;
           
           ball.vx = Math.sin(angle) * ball.speed;
           ball.vy = -Math.abs(Math.cos(angle) * ball.speed);
           
-          // Re-posicionar bola encima del paddle para evitar atascos
           ball.y = pTop - ball.radius;
           soundCtrl.playBounce();
         }
 
-        // Colisión con Ladrillos
-        s.bricks.forEach((brick, brIdx) => {
+        // Ladrillos
+        s.bricks.forEach((brick) => {
           if (brick.hp <= 0) return;
 
-          // Encontrar coordenadas del ladrillo
           const bLeft = brick.x;
           const bRight = brick.x + brick.w;
           const bTop = brick.y;
           const bBottom = brick.y + brick.h;
 
-          // Detección AABB simple con el radio de la pelota
           const closestX = Math.max(bLeft, Math.min(ball.x, bRight));
           const closestY = Math.max(bTop, Math.min(ball.y, bBottom));
           const dist = Math.hypot(ball.x - closestX, ball.y - closestY);
 
           if (dist < ball.radius) {
-            // Daño al bloque
             const damage = ball.isFire ? 3 : 1;
             brick.hp -= damage;
             s.score += 10;
             addPoints(10);
 
-            // Sonido e impacto de partículas
             if (brick.hp > 0) {
               soundCtrl.playHitBrick(brick.hp);
-              // Generar chispas de daño
               spawnParticles(closestX, closestY, brick.color, 8);
             } else {
               soundCtrl.playBreakBrick();
               s.score += 50;
               addPoints(50);
-              // Gran explosión de partículas
               spawnParticles(brick.x + brick.w / 2, brick.y + brick.h / 2, brick.color, 24);
 
-              // Soltar un Power-up (30% de probabilidad en bloques destruidos)
               if (Math.random() < 0.3 || brick.type !== 'normal') {
                 const types = Object.keys(POWERUPS);
                 const dropType = brick.type !== 'normal' ? brick.type : types[Math.floor(Math.random() * types.length)];
@@ -448,15 +431,13 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
                   x: brick.x + brick.w / 2,
                   y: brick.y + brick.h / 2,
                   type: dropType,
-                  vy: 3,
+                  vy: 3.5,
                   size: 20
                 });
               }
             }
 
-            // Si es bola normal (no fuego), rebota en los ladrillos
             if (!ball.isFire) {
-              // Determinar en qué cara del ladrillo colisionó para invertir la velocidad correcta
               const fromLeft = ball.x < bLeft;
               const fromRight = ball.x > bRight;
               const fromTop = ball.y < bTop;
@@ -464,21 +445,20 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
 
               if (fromLeft || fromRight) {
                 ball.vx *= -1;
-                ball.x += ball.vx * 0.5; // empujoncito
+                ball.x += ball.vx * 0.5;
               }
               if (fromTop || fromBottom) {
                 ball.vy *= -1;
-                ball.y += ball.vy * 0.5; // empujoncito
+                ball.y += ball.vy * 0.5;
               }
             }
           }
         });
       });
 
-      // 4. ACTUALIZACIÓN DE LÁSERES (POWERUP LASER)
+      // 4. ACTUALIZACIÓN DE LÁSERES
       if (s.activePowerups.LASER) {
         s.laserTimer += dt * 1000;
-        // Auto-disparar cada 350ms
         if (s.laserTimer > 350) {
           s.laserTimer = 0;
           s.lasers.push(
@@ -489,17 +469,14 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
         }
       }
 
-      // Mover láseres y detectar impactos
       s.lasers.forEach((laser, lIdx) => {
         laser.y += laser.vy * speedMultiplier;
 
-        // Limpiar fuera de límites
         if (laser.y < 0) {
           s.lasers.splice(lIdx, 1);
           return;
         }
 
-        // Colisión láser con bloques
         s.bricks.forEach((brick) => {
           if (brick.hp <= 0) return;
           if (
@@ -529,13 +506,11 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
       s.powerups.forEach((pu, puIdx) => {
         pu.y += pu.vy * speedMultiplier;
 
-        // Fuera de límites
-        if (pu.y > V_HEIGHT) {
+        if (pu.y > s.height) {
           s.powerups.splice(puIdx, 1);
           return;
         }
 
-        // Colisión con Paddle
         const pTop = s.paddle.y;
         const pLeft = s.paddle.x - s.paddle.w / 2;
         const pRight = s.paddle.x + s.paddle.w / 2;
@@ -546,7 +521,6 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
           pu.x >= pLeft &&
           pu.x <= pRight
         ) {
-          // Activar Power-up
           s.powerups.splice(puIdx, 1);
           applyPowerup(pu.type);
           return;
@@ -557,7 +531,7 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
       s.particles.forEach((p, pIdx) => {
         p.x += p.vx * speedMultiplier;
         p.y += p.vy * speedMultiplier;
-        p.vy += 0.15 * speedMultiplier; // Gravedad
+        p.vy += 0.15 * speedMultiplier;
         p.life -= dt;
         p.alpha = Math.max(0, p.life / p.maxLife);
 
@@ -566,30 +540,27 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
         }
       });
 
-      // 7. VERIFICACIÓN DE CONDICIONES DE JUEGO (VICTORIA / DERROTA)
-      // Si no quedan pelotas y el juego está activo, se resta una vida
+      // 7. VERIFICACIÓN DE CONDICIONES
       if (s.balls.length === 0) {
         s.lives -= 1;
         if (s.lives <= 0) {
           s.gameState = 'GAMEOVER';
           soundCtrl.playGameOver();
         } else {
-          // Crear nueva bola acoplada al paddle
           s.balls.push({
             x: s.paddle.x,
             y: s.paddle.y - 30,
             vx: 0,
             vy: 0,
-            radius: 10,
+            radius: 12,
             speed: s.baseSpeed,
             isDocked: true,
             isFire: false,
           });
-          soundCtrl.playGameOver(); // Sonido triste por la vida perdida
+          soundCtrl.playGameOver();
         }
       }
 
-      // Ladrillos limpios -> ¡Ganaste!
       const activeBricks = s.bricks.filter(b => b.hp > 0);
       if (activeBricks.length === 0) {
         s.gameState = 'WIN';
@@ -599,7 +570,6 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
       syncReactState();
     };
 
-    // --- UTILIDADES AUXILIARES ---
     const spawnParticles = (x, y, color, count) => {
       const s = stateRef.current;
       for (let i = 0; i < count; i++) {
@@ -610,7 +580,7 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
           x,
           y,
           vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed - 1.5, // Impulso inicial hacia arriba
+          vy: Math.sin(angle) * speed - 1.5,
           color,
           radius: 2 + Math.random() * 3.5,
           life,
@@ -625,7 +595,6 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
       soundCtrl.playPowerup();
 
       if (type === 'MULTI') {
-        // Duplicar pelotas activas, si no hay acoplada, lanzar 5 pelotas en abanico
         const baseBalls = [...s.balls];
         if (baseBalls.length === 1 && baseBalls[0].isDocked) {
           const main = baseBalls[0];
@@ -634,7 +603,6 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
           main.vy = -main.speed;
         }
 
-        // Crear 4 pelotas extras en diferentes direcciones
         for (let i = 0; i < 4; i++) {
           const angle = -Math.PI / 2 + (i - 1.5) * 0.4;
           s.balls.push({
@@ -642,69 +610,65 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
             y: s.paddle.y - 30,
             vx: Math.sin(angle) * s.baseSpeed,
             vy: -Math.abs(Math.cos(angle) * s.baseSpeed),
-            radius: 10,
+            radius: 12,
             speed: s.baseSpeed,
             isDocked: false,
             isFire: false,
           });
         }
       } else {
-        // Duraciones para otros powerups: 10 a 15 segundos
         const duration = type === 'WIDE' ? 15000 : type === 'FIRE' ? 10000 : 12000;
         s.activePowerups[type] = duration;
 
         if (type === 'WIDE') {
-          s.paddle.targetW = 240; // Expandir
+          s.paddle.targetW = 260; 
         }
       }
       syncReactState();
     };
 
-    // --- RENDERIZADO DEL ESCENARIO ---
+    // --- RENDERIZADO (Transparente para ver el feed de video detrás) ---
     const draw = () => {
       const s = stateRef.current;
-      ctx.clearRect(0, 0, V_WIDTH, V_HEIGHT);
+      ctx.clearRect(0, 0, s.width, s.height);
 
-      // A. FONDO CYBER NEON CON CUADRÍCULA
-      ctx.fillStyle = '#06060c';
-      ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
+      // Fondo semi-transparente cyber neon
+      ctx.fillStyle = 'rgba(3, 3, 11, 0.25)';
+      ctx.fillRect(0, 0, s.width, s.height);
 
-      // Dibujar grilla neon difuminada
+      // Rejilla neón
       ctx.strokeStyle = 'rgba(139, 92, 246, 0.08)';
       ctx.lineWidth = 1;
-      const gridSize = 40;
-      for (let x = 0; x < V_WIDTH; x += gridSize) {
+      const gridSize = 45;
+      for (let x = 0; x < s.width; x += gridSize) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
-        ctx.lineTo(x, V_HEIGHT);
+        ctx.lineTo(x, s.height);
         ctx.stroke();
       }
-      for (let y = 0; y < V_HEIGHT; y += gridSize) {
+      for (let y = 0; y < s.height; y += gridSize) {
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(V_WIDTH, y);
+        ctx.lineTo(s.width, y);
         ctx.stroke();
       }
 
-      // B. RENDER DE LADRILLOS
+      // Ladrillos
       s.bricks.forEach((brick) => {
         if (brick.hp <= 0) return;
 
-        // Efecto Glow
         ctx.shadowBlur = 10;
         ctx.shadowColor = brick.color;
 
-        // Gradiente interno del bloque
         const grad = ctx.createLinearGradient(brick.x, brick.y, brick.x, brick.y + brick.h);
         grad.addColorStop(0, brick.color);
-        grad.addColorStop(1, 'rgba(0,0,0,0.4)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.5)');
 
         ctx.fillStyle = grad;
-        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
         ctx.lineWidth = 1.5;
 
-        // Ladrillo redondeado
-        const r = 6; // radio de bordes
+        const r = 6;
         ctx.beginPath();
         ctx.moveTo(brick.x + r, brick.y);
         ctx.lineTo(brick.x + brick.w - r, brick.y);
@@ -719,26 +683,24 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
         ctx.fill();
         ctx.stroke();
 
-        // Si es bloque especial, añadir ícono o símbolo
         if (brick.type !== 'normal') {
           ctx.shadowBlur = 0;
           ctx.fillStyle = '#fff';
-          ctx.font = 'black 11px sans-serif';
+          ctx.font = 'bold 11px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(POWERUPS[brick.type]?.symbol || '', brick.x + brick.w - 14, brick.y + 10);
         }
 
-        // Escribir número de HP de vida en el centro
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 12px monospace';
+        ctx.font = 'black 12px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(brick.hp.toString(), brick.x + brick.w / 2, brick.y + brick.h / 2);
       });
 
-      // C. RENDER DE PADDLE NEON
+      // Paddle
       ctx.shadowBlur = 20;
       ctx.shadowColor = s.activePowerups.LASER ? '#F59E0B' : '#8B5CF6';
       
@@ -760,23 +722,22 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
 
       ctx.fillStyle = pGrad;
       ctx.beginPath();
-      // Dibujar paddle en forma de cápsula futurista
       ctx.roundRect(s.paddle.x - s.paddle.w / 2, s.paddle.y, s.paddle.w, s.paddle.h, 10);
       ctx.fill();
       ctx.strokeStyle = 'rgba(255,255,255,0.7)';
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // D. RENDER DE LÍNEA DE APUNTADO
+      // Línea de apuntado
       const pBall = s.balls.find(b => b.isDocked);
       if (pBall) {
         ctx.shadowBlur = 15;
-        ctx.shadowColor = 'rgba(255,255,255,0.6)';
-        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+        ctx.shadowColor = 'rgba(255,255,255,0.65)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
         ctx.lineWidth = 3;
         ctx.setLineDash([8, 6]);
 
-        const lineLen = 160;
+        const lineLen = 170;
         const targetX = pBall.x + Math.cos(s.aimAngle) * lineLen;
         const targetY = pBall.y + Math.sin(s.aimAngle) * lineLen;
 
@@ -784,16 +745,15 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
         ctx.moveTo(pBall.x, pBall.y);
         ctx.lineTo(targetX, targetY);
         ctx.stroke();
-        ctx.setLineDash([]); // Resetear
+        ctx.setLineDash([]);
 
-        // Punta de flecha de apuntado
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         ctx.arc(targetX, targetY, 6, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // E. RENDER DE PELOTAS
+      // Pelotas
       s.balls.forEach((ball) => {
         ctx.shadowBlur = 15;
         ctx.shadowColor = ball.isFire ? '#EF4444' : '#06B6D4';
@@ -825,7 +785,7 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
         ctx.stroke();
       });
 
-      // F. RENDER DE LÁSERES
+      // Láseres
       s.lasers.forEach((laser) => {
         ctx.shadowBlur = 10;
         ctx.shadowColor = '#F59E0B';
@@ -833,7 +793,7 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
         ctx.fillRect(laser.x - 2, laser.y, 4, 15);
       });
 
-      // G. RENDER DE POWER-UPS CAYENDO
+      // Power-ups
       s.powerups.forEach((pu) => {
         const info = POWERUPS[pu.type];
         if (!info) return;
@@ -841,7 +801,6 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
         ctx.shadowBlur = 12;
         ctx.shadowColor = info.color;
 
-        // Esfera luminosa de poder
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
         ctx.strokeStyle = info.color;
         ctx.lineWidth = 2.5;
@@ -850,7 +809,6 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
         ctx.fill();
         ctx.stroke();
 
-        // Símbolo del emoji/icono central
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '11px sans-serif';
@@ -859,7 +817,7 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
         ctx.fillText(info.symbol, pu.x, pu.y);
       });
 
-      // H. RENDER DE PARTÍCULAS
+      // Partículas
       s.particles.forEach((p) => {
         ctx.shadowBlur = 8;
         ctx.shadowColor = p.color;
@@ -870,14 +828,13 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fill();
       });
-      ctx.globalAlpha = 1.0; // Resetear
+      ctx.globalAlpha = 1.0;
       ctx.shadowBlur = 0;
     };
 
-    // --- BUCLE CENTRAL (GAME LOOP) ---
     const tick = (timestamp) => {
       if (!stateRef.current.lastTime) stateRef.current.lastTime = timestamp;
-      const elapsed = Math.min(0.03, (timestamp - stateRef.current.lastTime) / 1000); // Clampar
+      const elapsed = Math.min(0.03, (timestamp - stateRef.current.lastTime) / 1000);
       stateRef.current.lastTime = timestamp;
 
       updatePhysics(elapsed);
@@ -887,10 +844,24 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
     };
 
     animId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animId);
+
+    const handleResize = () => {
+      if (canvasRef.current) {
+        canvasRef.current.width = window.innerWidth;
+        canvasRef.current.height = window.innerHeight;
+        stateRef.current.width = window.innerWidth;
+        stateRef.current.height = window.innerHeight;
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('resize', handleResize);
+    };
   }, [addPoints, syncReactState]);
 
-  // Limpiar temporizadores si se desmonta
   useEffect(() => {
     return () => {
       if (stateRef.current.powerupTimer) clearTimeout(stateRef.current.powerupTimer);
@@ -898,14 +869,14 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
   }, []);
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-black/20 backdrop-blur-sm relative overflow-hidden select-none">
+    <div className="absolute inset-0 w-full h-full flex flex-col select-none overflow-hidden bg-transparent">
       
-      {/* Marcador superior y Controles */}
-      <div className="w-full max-w-4xl flex items-center justify-between mb-4 glass px-8 py-3 rounded-2xl border border-white/10 z-10">
-        <div className="flex gap-8 text-xs font-black uppercase tracking-widest text-white/60">
+      {/* Marcador Superior Flotante */}
+      <div className="w-full flex items-center justify-between px-12 py-3 bg-black/40 backdrop-blur-md border-b border-white/5 z-10">
+        <div className="flex gap-8 text-[10px] font-black uppercase tracking-widest text-white/50">
           <div className="flex items-center gap-2">
-            <Trophy size={14} className="text-purple-400" />
-            Puntos: <span className="text-white font-bold text-sm ml-1">{score}</span>
+            <Trophy size={14} className="text-purple-400 animate-bounce-slow" />
+            Puntos: <span className="text-purple-400 font-black text-sm ml-1">{score}</span>
           </div>
           <div className="flex items-center gap-2">
             <Heart size={14} className="text-red-500 fill-red-500 animate-pulse" />
@@ -919,21 +890,21 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
         </div>
 
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-2xl border border-white/10 shadow-inner">
-            <span className="text-[10px] font-black uppercase text-purple-400 tracking-wider">Velocidad:</span>
+          <div className="flex items-center gap-3 bg-white/5 px-4 py-1.5 rounded-full border border-white/10 shadow-inner">
+            <span className="text-[9px] font-black uppercase text-purple-400 tracking-wider">Velocidad:</span>
             <input 
               type="range" 
-              min="4" 
-              max="15" 
+              min="7" 
+              max="22" 
               step="0.5" 
               value={baseSpeed} 
               onChange={(e) => handleSpeedChange(parseFloat(e.target.value))} 
-              className="w-20 accent-purple-500 cursor-pointer h-1.5 bg-white/20 rounded-lg appearance-none transition-all hover:bg-white/30" 
+              className="w-20 accent-purple-500 cursor-pointer h-1.5 bg-white/20 rounded-lg appearance-none transition-all" 
             />
             <span className="text-white font-bold text-xs min-w-[20px] text-center">{baseSpeed}</span>
           </div>
 
-          <div className="text-xs font-black uppercase text-purple-400 tracking-wider">
+          <div className="text-[10px] font-black uppercase text-purple-400 tracking-wider">
             Nivel: <span className="text-white font-bold text-sm ml-1">{level}</span>
           </div>
           
@@ -946,28 +917,26 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
         </div>
       </div>
 
-      {/* CANVAS DEL JUEGO */}
-      <div className="relative border border-white/10 rounded-[30px] overflow-hidden shadow-2xl bg-black max-w-[80vh] aspect-square w-full">
+      {/* CANVAS DEL JUEGO COMPLETO */}
+      <div className="flex-1 relative bg-transparent w-full h-full">
         <canvas
           ref={canvasRef}
-          width={V_WIDTH}
-          height={V_HEIGHT}
-          className="w-full h-full object-contain cursor-none"
+          className="w-full h-full cursor-none bg-transparent"
         />
 
-        {/* --- PANTALLAS DE ESTADOS --- */}
+        {/* --- PANTALLAS DE ESTADOS GESTUALES (HandButton) --- */}
         <AnimatePresence>
           {gameState === 'START' && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-8 text-center"
+              className="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center p-8 text-center z-30"
             >
               <motion.div
-                initial={{ scale: 0.8 }}
+                initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
-                className="glass-dark p-12 rounded-[50px] border border-white/10 flex flex-col items-center gap-8 max-w-lg shadow-[0_0_80px_rgba(139,92,246,0.3)]"
+                className="glass-dark p-12 rounded-[50px] border border-white/10 flex flex-col items-center gap-8 max-w-lg shadow-[0_0_80px_rgba(139,92,246,0.25)]"
               >
                 <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-[30px] flex items-center justify-center text-5xl shadow-2xl animate-float">
                   🎮
@@ -977,19 +946,21 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
                     Balls Crush
                   </h2>
                   <p className="text-xs font-black text-white/40 uppercase tracking-[0.3em]">
-                    Bricks Breaker Gestural
+                    Destructor de Ladrillos Gestual
                   </p>
                   <p className="text-[10px] text-white/50 leading-relaxed max-w-sm italic">
-                    Desliza tu mano 🖐️ para mover la barra. Apunta con tu mano y realiza el pellizco 🤏 para lanzar/disparar. ¡Destruye todos los bloques!
+                    Desliza tu mano 🖐️ para mover la barra lateralmente. Apunta con tu mano y realiza un pellizco 🤏 para lanzar o disparar.
                   </p>
                 </div>
 
-                <button
+                <HandButton
                   onClick={() => initGame(1)}
-                  className="px-10 py-5 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-3xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-3 border border-white/10 shadow-lg text-white"
+                  className="px-12 py-5 text-sm"
+                  variant="purple"
+                  dwellMs={900}
                 >
                   <Play fill="white" size={14} /> Comenzar Juego
-                </button>
+                </HandButton>
               </motion.div>
             </motion.div>
           )}
@@ -999,22 +970,24 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center text-center z-20"
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center text-center z-30"
             >
               <div className="glass p-12 rounded-[40px] border border-white/10 flex flex-col items-center gap-6 max-w-md">
                 <span className="text-7xl animate-pulse">💀</span>
                 <h3 className="text-4xl font-display font-black text-red-500 italic uppercase">
                   Juego Terminado
                 </h3>
-                <p className="text-white/40 text-[10px] uppercase tracking-widest">
-                  Lograste acumular {score} puntos en EduMotion
+                <p className="text-white/50 text-xs uppercase tracking-widest font-black mb-4">
+                  Obtuviste {score} puntos en LearnHands
                 </p>
-                <button
+                <HandButton
                   onClick={() => initGame(1)}
-                  className="px-8 py-4 bg-purple-600 hover:bg-purple-500 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg text-white"
+                  className="px-10 py-5 text-xs"
+                  variant="red"
+                  dwellMs={900}
                 >
                   <RotateCcw size={14} /> Intentar de Nuevo
-                </button>
+                </HandButton>
               </div>
             </motion.div>
           )}
@@ -1024,28 +997,29 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center text-center z-20"
+              className="absolute inset-0 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center text-center z-30"
             >
               <div className="glass p-12 rounded-[40px] border border-white/10 flex flex-col items-center gap-6 max-w-md">
                 <span className="text-7xl animate-bounce">🏆</span>
                 <h3 className="text-4xl font-display font-black text-green-500 italic uppercase">
                   ¡Nivel Completado!
                 </h3>
-                <p className="text-white/40 text-[10px] uppercase tracking-widest">
-                  ¡Excelente puntería y control gestual!
+                <p className="text-white/40 text-[9px] uppercase tracking-widest font-black mb-4">
+                  ¡Excelente control y puntería de manos!
                 </p>
-                <button
+                <HandButton
                   onClick={() => initGame(level + 1)}
-                  className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg text-white"
+                  className="px-10 py-5 text-xs"
+                  variant="emerald"
+                  dwellMs={900}
                 >
                   <Play fill="white" size={12} /> Avanzar al Nivel {level + 1}
-                </button>
+                </HandButton>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Indicador de Powerup Activo flotando */}
         {activePowerupLabel && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-amber-500/20 backdrop-blur-md border border-amber-500/30 text-amber-300 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg animate-pulse z-10">
             <Zap size={10} className="fill-amber-300" />
@@ -1054,15 +1028,14 @@ const BricksModule = ({ cursors = [], gestures = [], addPoints }) => {
         )}
       </div>
 
-      {/* Indicador inferior de ayuda gestual */}
       {gameState === 'PLAYING' && (
-        <div className="mt-4 flex items-center gap-4 text-white/30 text-[9px] font-black uppercase tracking-widest glass px-6 py-2.5 rounded-full border border-white/5 animate-pulse">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 text-white/30 text-[9px] font-black uppercase tracking-widest glass px-6 py-2.5 rounded-full border border-white/5 animate-pulse z-20">
           <Sparkles size={12} className="text-purple-400" />
-          <span>Control: Mano izquierda/derecha para deslizar • Pellizco 🤏 para lanzar</span>
+          <span>Control: Desliza tu mano • Pellizco 🤏 para lanzar</span>
         </div>
       )}
     </div>
   );
-};
+});
 
 export default BricksModule;

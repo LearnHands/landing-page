@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, AlertCircle, CheckCircle2 } from 'lucide-react';
 
@@ -18,7 +18,7 @@ const SHAPES = [
   { id: 'star', name: 'Estrella', icon: '★' },
 ];
 
-const ShapesModule = ({ cursors, addPoints }) => {
+const ShapesModule = memo(({ addPoints }) => {
   const [target, setTarget] = useState(null);
   const [options, setOptions] = useState([]);
   const [feedback, setFeedback] = useState(null); // 'success', 'error'
@@ -30,19 +30,16 @@ const ShapesModule = ({ cursors, addPoints }) => {
     const randomShape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
     const newTarget = { color: randomColor, shape: randomShape };
     
-    // Generate 6 options, ensuring at least one is the target
     let newOptions = [{ ...newTarget, id: Math.random() }];
     
     while (newOptions.length < 6) {
       const c = COLORS[Math.floor(Math.random() * COLORS.length)];
       const s = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-      // Avoid duplicates
       if (!newOptions.find(o => o.color.id === c.id && o.shape.id === s.id)) {
         newOptions.push({ color: c, shape: s, id: Math.random() });
       }
     }
     
-    // Shuffle
     newOptions = newOptions.sort(() => Math.random() - 0.5);
     
     setTarget(newTarget);
@@ -55,7 +52,7 @@ const ShapesModule = ({ cursors, addPoints }) => {
     generateLevel();
   }, [generateLevel]);
 
-  // Interaction Loop
+  // Interaction Loop (Decouplado de React render loop)
   useEffect(() => {
     if (!target || feedback) return;
 
@@ -63,12 +60,15 @@ const ShapesModule = ({ cursors, addPoints }) => {
       const newProgress = { ...dwellProgress };
       let updated = false;
 
+      // Obtener cursores actualizados de la variable global
+      const handData = window.latestHandData || { cursors: [] };
+      const cursors = handData.cursors || [];
+
       options.forEach(opt => {
         const element = document.getElementById(`opt-${opt.id}`);
         if (!element) return;
 
         const rect = element.getBoundingClientRect();
-        // Add padding for easier hitting
         const hitArea = {
           left: rect.left - 20,
           right: rect.right + 20,
@@ -77,6 +77,7 @@ const ShapesModule = ({ cursors, addPoints }) => {
         };
 
         const isHit = cursors.some(c => 
+          c && c.isVisible &&
           c.x >= hitArea.left && c.x <= hitArea.right &&
           c.y >= hitArea.top && c.y <= hitArea.bottom
         );
@@ -84,7 +85,7 @@ const ShapesModule = ({ cursors, addPoints }) => {
         if (isHit) {
           updated = true;
           const current = newProgress[opt.id] || 0;
-          const next = current + 0.08; // Fast dwell (~0.5s)
+          const next = current + 0.08; 
           
           if (next >= 1) {
             handleSelection(opt);
@@ -102,7 +103,7 @@ const ShapesModule = ({ cursors, addPoints }) => {
 
     const interval = setInterval(checkCollisions, 50);
     return () => clearInterval(interval);
-  }, [cursors, options, target, feedback, dwellProgress]);
+  }, [options, target, feedback, dwellProgress]);
 
   const handleSelection = (opt) => {
     const isCorrect = opt.color.id === target.color.id && opt.shape.id === target.shape.id;
@@ -166,10 +167,8 @@ const ShapesModule = ({ cursors, addPoints }) => {
             }`}
             style={{ color: opt.color.hex }}
           >
-            {/* Shape Rendering */}
             <span className="drop-shadow-2xl">{opt.shape.icon}</span>
             
-            {/* Dwell Progress Ring */}
             {dwellProgress[opt.id] > 0 && (
               <svg className="absolute inset-0 w-full h-full p-2 -rotate-90 pointer-events-none">
                 <circle
@@ -219,7 +218,6 @@ const ShapesModule = ({ cursors, addPoints }) => {
         )}
       </AnimatePresence>
       
-      {/* Visual Aid (Bouncing Hint after 8s) */}
       <AnimatePresence>
         {!feedback && (
           <motion.div 
@@ -232,6 +230,6 @@ const ShapesModule = ({ cursors, addPoints }) => {
       </AnimatePresence>
     </div>
   );
-};
+});
 
 export default ShapesModule;

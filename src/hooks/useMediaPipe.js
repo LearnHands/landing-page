@@ -4,12 +4,81 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 let globalHandsInstance = null;
 let globalHandsPromise = null;
 
+// --- GESTURE & CURSOR MATH HELPERS ---
+const distance2D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const isFingerExt = (tip, pip) => tip.y < pip.y;
+
+const calculateGestures = (multiHandLandmarks) => {
+  if (!multiHandLandmarks || multiHandLandmarks.length === 0) return [];
+  return multiHandLandmarks.map((landmarks) => {
+    const thumbTip = landmarks[4];
+    const indexTip = landmarks[8];
+    const indexPip = landmarks[6];
+    const middleTip = landmarks[12];
+    const middlePip = landmarks[10];
+    const ringTip = landmarks[16];
+    const ringPip = landmarks[14];
+    const pinkyTip = landmarks[20];
+    const pinkyPip = landmarks[18];
+
+    const dist = distance2D(thumbTip, indexTip);
+    const isPinching = dist < 0.08;
+
+    const indexExt = isFingerExt(indexTip, indexPip);
+    const middleExt = isFingerExt(middleTip, middlePip);
+    const ringExt = isFingerExt(ringTip, ringPip);
+    const pinkyExt = isFingerExt(pinkyTip, pinkyPip);
+
+    const isOpenHand = indexExt && middleExt && ringExt && pinkyExt;
+    const isIndexUp = indexExt && !middleExt && !ringExt && !pinkyExt;
+
+    return {
+      isPinching,
+      isOpenHand,
+      isIndexUp,
+      indexTip,
+      landmarks
+    };
+  });
+};
+
+const calculateCursors = (multiHandLandmarks, videoEl) => {
+  if (!multiHandLandmarks || multiHandLandmarks.length === 0) return [];
+
+  const vw = videoEl?.videoWidth || 1280;
+  const vh = videoEl?.videoHeight || 720;
+  const screenW = window.innerWidth;
+  const screenH = window.innerHeight;
+
+  const scale = Math.max(screenW / vw, screenH / vh);
+  const scaledW = vw * scale;
+  const scaledH = vh * scale;
+
+  const offsetX = (scaledW - screenW) / 2;
+  const offsetY = (scaledH - screenH) / 2;
+
+  return multiHandLandmarks.map((landmarks) => {
+    const indexTip = landmarks[8];
+    if (!indexTip) return { x: 0, y: 0, isVisible: false };
+
+    const normX = 1 - indexTip.x;
+    const normY = indexTip.y;
+
+    const targetX = normX * scaledW - offsetX;
+    const targetY = normY * scaledH - offsetY;
+
+    return {
+      x: Math.max(0, Math.min(screenW, targetX)),
+      y: Math.max(0, Math.min(screenH, targetY)),
+      isVisible: true
+    };
+  });
+};
+
 export const useMediaPipe = () => {
-  // Minimize hooks to 1 state and 4 refs for total stability
   const [data, setData] = useState({
     isLoaded: false,
     isDetecting: false,
-    landmarks: [],
     error: null
   });
   
@@ -25,7 +94,8 @@ export const useMediaPipe = () => {
       tracks.forEach(track => track.stop());
       videoRef.current.srcObject = null;
     }
-    setData(prev => ({ ...prev, isDetecting: false, landmarks: [] }));
+    window.latestHandData = { landmarks: [], cursors: [], gestures: [] };
+    setData(prev => ({ ...prev, isDetecting: false }));
   }, []);
 
   const initMediaPipe = useCallback(async (videoElement) => {
@@ -60,10 +130,10 @@ export const useMediaPipe = () => {
           });
 
           instance.setOptions({
-            maxNumHands: 1,
+            maxNumHands: 2, // Permite detectar hasta 2 manos simultáneamente
             modelComplexity: 0,
-            minDetectionConfidence: 0.4,
-            minTrackingConfidence: 0.4
+            minDetectionConfidence: 0.45,
+            minTrackingConfidence: 0.45
           });
 
           await instance.initialize();
@@ -83,18 +153,28 @@ export const useMediaPipe = () => {
 
         if (!results) return;
         const found = results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
+        const landmarks = found ? [...results.multiHandLandmarks] : [];
+
+        // Calcular cursores y gestos en base al videoRef
+        const cursors = calculateCursors(landmarks, videoRef.current);
+        const gestures = calculateGestures(landmarks);
+
+        // Publicar a variable global en memoria
+        window.latestHandData = { landmarks, cursors, gestures };
         
-        // Single atomic state update
-        setData(prev => ({
-          ...prev,
-          isDetecting: found,
-          landmarks: found ? [...results.multiHandLandmarks] : [],
-          isLoaded: true
-        }));
+        // Actualizar estado de React solo si cambia la detección o carga para evitar renders innecesarios
+        setData(prev => {
+          if (prev.isDetecting === found && prev.isLoaded) return prev;
+          return {
+            ...prev,
+            isDetecting: found,
+            isLoaded: true
+          };
+        });
       });
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
       });
 
       if (videoRef.current && isActiveRef.current) {

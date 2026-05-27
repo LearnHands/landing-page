@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Info, CheckCircle2, RotateCcw, ArrowRight } from 'lucide-react';
+import HandButton from '../HandButton';
 
 const PLANETS = [
   { id: 'mercury', name: 'Mercurio', color: '#9CA3AF', size: 40, distance: 120, fact: 'Es el planeta más pequeño y cercano al Sol.', quiz: '¿Cuál es el planeta más pequeño?', order: 1 },
@@ -13,7 +14,7 @@ const PLANETS = [
   { id: 'neptune', name: 'Neptuno', color: '#1D4ED8', size: 70, distance: 740, fact: 'Es el planeta más alejado del Sol.', quiz: '¿Cuál es el planeta más lejano?', order: 8 },
 ];
 
-const SolarModule = ({ cursors, addPoints }) => {
+const SolarModule = memo(({ addPoints }) => {
   const [mode, setMode] = useState('EXPLORE'); // EXPLORE, QUIZ
   const [selectedPlanet, setSelectedPlanet] = useState(null);
   const [targetPlanet, setTargetPlanet] = useState(null);
@@ -28,11 +29,15 @@ const SolarModule = ({ cursors, addPoints }) => {
     setSelectedPlanet(null);
   }, []);
 
-  // Interaction Loop
+  // Interaction Loop (Decouplado de React render loop)
   useEffect(() => {
     const checkCollisions = () => {
       const newProgress = { ...dwellProgress };
       let updated = false;
+
+      // Obtener cursores actualizados de la memoria global
+      const handData = window.latestHandData || { cursors: [] };
+      const cursors = handData.cursors || [];
 
       PLANETS.forEach(planet => {
         const element = document.getElementById(`planet-${planet.id}`);
@@ -40,6 +45,7 @@ const SolarModule = ({ cursors, addPoints }) => {
 
         const rect = element.getBoundingClientRect();
         const isHit = cursors.some(c => 
+          c && c.isVisible &&
           c.x >= rect.left - 40 && c.x <= rect.right + 40 &&
           c.y >= rect.top - 40 && c.y <= rect.bottom + 40
         );
@@ -66,7 +72,7 @@ const SolarModule = ({ cursors, addPoints }) => {
 
     const interval = setInterval(checkCollisions, 50);
     return () => clearInterval(interval);
-  }, [cursors, dwellProgress, mode, targetPlanet]);
+  }, [dwellProgress, mode, targetPlanet]);
 
   const handlePlanetSelect = (planet) => {
     if (mode === 'QUIZ') {
@@ -80,7 +86,6 @@ const SolarModule = ({ cursors, addPoints }) => {
         }, 3000);
       } else {
         setStreak(0);
-        // Visual feedback for error handled in render
       }
     } else {
       setSelectedPlanet(planet);
@@ -156,16 +161,17 @@ const SolarModule = ({ cursors, addPoints }) => {
       </div>
 
       {/* Mode UI Overlay */}
-      <div className="absolute top-12 left-1/2 -translate-x-1/2 w-full max-w-xl text-center space-y-4">
+      <div className="absolute top-12 left-1/2 -translate-x-1/2 w-full max-w-xl text-center space-y-4 z-40">
         <AnimatePresence mode="wait">
           {mode === 'EXPLORE' ? (
             <motion.div key="expl" initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
                  className="glass-dark p-6 rounded-3xl border border-white/10 flex flex-col items-center gap-4">
               <h2 className="text-3xl font-display font-black italic uppercase text-gradient">Explora el Sistema Solar</h2>
               <p className="text-white/40 text-[10px] font-black uppercase tracking-widest">Toca un planeta para conocer sus secretos</p>
-              <button onClick={startQuiz} className="px-6 py-2 bg-purple-600 rounded-full text-[9px] font-black uppercase tracking-widest hover:bg-purple-500 transition-all flex items-center gap-2">
+              
+              <HandButton onClick={startQuiz} className="px-6 py-2.5 text-[9px]" variant="purple" dwellMs={800}>
                 Empezar Desafío <ArrowRight size={12} />
-              </button>
+              </HandButton>
             </motion.div>
           ) : (
             <motion.div key="quiz" initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
@@ -189,7 +195,7 @@ const SolarModule = ({ cursors, addPoints }) => {
             initial={{ x: 300, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 300, opacity: 0 }}
-            className="absolute right-8 top-1/2 -translate-y-1/2 w-80 glass-dark p-8 rounded-[40px] border border-white/10 shadow-2xl space-y-8 z-50"
+            className="absolute right-8 top-1/2 -translate-y-1/2 w-80 glass-dark p-8 rounded-[40px] border border-white/10 shadow-2xl space-y-8 z-50 animate-fade-in"
           >
             <div className="flex flex-col items-center gap-6">
               <div className="w-32 h-32 rounded-full shadow-2xl relative" style={{ background: `radial-gradient(circle at 30% 30%, ${selectedPlanet.color}, #000)` }}>
@@ -211,12 +217,14 @@ const SolarModule = ({ cursors, addPoints }) => {
             </div>
 
             {mode === 'EXPLORE' && (
-              <button 
+              <HandButton 
                 onClick={() => setSelectedPlanet(null)}
-                className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                className="w-full py-4 text-[9px]"
+                variant="purple"
+                dwellMs={800}
               >
                 Cerrar Info
-              </button>
+              </HandButton>
             )}
 
             {mode === 'QUIZ' && selectedPlanet.id === targetPlanet.id && (
@@ -237,6 +245,6 @@ const SolarModule = ({ cursors, addPoints }) => {
       )}
     </div>
   );
-};
+});
 
 export default SolarModule;

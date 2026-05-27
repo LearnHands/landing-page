@@ -147,10 +147,6 @@ export const useMediaPipe = () => {
       globalHandsInstance.onResults((results) => {
         if (!isActiveRef.current) return;
         
-        const now = Date.now();
-        if (now - lastUpdateRef.current < 16) return; // 60 FPS support
-        lastUpdateRef.current = now;
-
         if (!results) return;
         const found = results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
         const landmarks = found ? [...results.multiHandLandmarks] : [];
@@ -174,7 +170,7 @@ export const useMediaPipe = () => {
       });
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
       });
 
       if (videoRef.current && isActiveRef.current) {

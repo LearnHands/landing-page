@@ -175,7 +175,7 @@ const BricksModule = memo(({ addPoints }) => {
     const rows = Math.min(3 + lvl, 6);
     const brickW = width / cols - 12;
     const brickH = 28;
-    const startY = 160; // Desplazado abajo para no tapar el marcador
+    const startY = 110; // Desplazado abajo para no tapar el marcador
     const newBricks = [];
 
     const colors = [
@@ -469,16 +469,19 @@ const BricksModule = memo(({ addPoints }) => {
         }
       }
 
-      s.lasers.forEach((laser, lIdx) => {
+      for (let i = s.lasers.length - 1; i >= 0; i--) {
+        const laser = s.lasers[i];
         laser.y += laser.vy * speedMultiplier;
 
         if (laser.y < 0) {
-          s.lasers.splice(lIdx, 1);
-          return;
+          s.lasers.splice(i, 1);
+          continue;
         }
 
-        s.bricks.forEach((brick) => {
-          if (brick.hp <= 0) return;
+        let laserHit = false;
+        for (let j = 0; j < s.bricks.length; j++) {
+          const brick = s.bricks[j];
+          if (brick.hp <= 0) continue;
           if (
             laser.x >= brick.x &&
             laser.x <= brick.x + brick.w &&
@@ -488,7 +491,6 @@ const BricksModule = memo(({ addPoints }) => {
             brick.hp -= 1;
             s.score += 5;
             addPoints(5);
-            s.lasers.splice(lIdx, 1);
             spawnParticles(laser.x, laser.y, '#F59E0B', 6);
             if (brick.hp <= 0) {
               soundCtrl.playBreakBrick();
@@ -498,17 +500,24 @@ const BricksModule = memo(({ addPoints }) => {
             } else {
               soundCtrl.playHitBrick(brick.hp);
             }
+            laserHit = true;
+            break;
           }
-        });
-      });
+        }
+
+        if (laserHit) {
+          s.lasers.splice(i, 1);
+        }
+      }
 
       // 5. CAÍDA Y OBTENCIÓN DE POWER-UPS
-      s.powerups.forEach((pu, puIdx) => {
+      for (let i = s.powerups.length - 1; i >= 0; i--) {
+        const pu = s.powerups[i];
         pu.y += pu.vy * speedMultiplier;
 
         if (pu.y > s.height) {
-          s.powerups.splice(puIdx, 1);
-          return;
+          s.powerups.splice(i, 1);
+          continue;
         }
 
         const pTop = s.paddle.y;
@@ -521,14 +530,14 @@ const BricksModule = memo(({ addPoints }) => {
           pu.x >= pLeft &&
           pu.x <= pRight
         ) {
-          s.powerups.splice(puIdx, 1);
+          s.powerups.splice(i, 1);
           applyPowerup(pu.type);
-          return;
         }
-      });
+      }
 
       // 6. ACTUALIZACIÓN DE PARTÍCULAS
-      s.particles.forEach((p, pIdx) => {
+      for (let i = s.particles.length - 1; i >= 0; i--) {
+        const p = s.particles[i];
         p.x += p.vx * speedMultiplier;
         p.y += p.vy * speedMultiplier;
         p.vy += 0.15 * speedMultiplier;
@@ -536,9 +545,9 @@ const BricksModule = memo(({ addPoints }) => {
         p.alpha = Math.max(0, p.life / p.maxLife);
 
         if (p.life <= 0) {
-          s.particles.splice(pIdx, 1);
+          s.particles.splice(i, 1);
         }
-      });
+      }
 
       // 7. VERIFICACIÓN DE CONDICIONES
       if (s.balls.length === 0) {

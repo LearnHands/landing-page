@@ -111,8 +111,8 @@ const LayeredEngine = ({ children, videoRef, isLoaded, error, transparent = fals
             trail.y = cursor.y;
             trail.initialized = true;
           } else {
-            trail.x += (cursor.x - trail.x) * 0.45;
-            trail.y += (cursor.y - trail.y) * 0.45;
+            trail.x += (cursor.x - trail.x) * 0.75;
+            trail.y += (cursor.y - trail.y) * 0.75;
           }
 
           if (trailEl) {

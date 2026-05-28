@@ -28,7 +28,7 @@ const MathAbacusModule = memo(({ addPoints }) => {
     bubbles: [],
     particles: [],
     streak: 0,
-    hoverStates: {} // id -> dwell count (número de frames en colisión)
+    wasPinching: [false, false]
   });
 
   // Sincronizar estados visuales con React
@@ -124,7 +124,7 @@ const MathAbacusModule = memo(({ addPoints }) => {
       numberVal = needed;
     }
 
-    const speedScale = 0.07 + Math.random() * 0.06;
+    const speedScale = 0.28 + Math.random() * 0.16;
     const newBubble = {
       id: idCounter.current,
       value: numberVal,
@@ -154,7 +154,7 @@ const MathAbacusModule = memo(({ addPoints }) => {
       if (s.bubbles.length < 7) {
         spawnBubble();
       }
-    }, 1500);
+    }, 2500);
 
     return () => clearInterval(spawnTimerRef.current);
   }, [spawnBubble]);
@@ -186,7 +186,7 @@ const MathAbacusModule = memo(({ addPoints }) => {
 
       // 2. Mover burbujas flotantes
       let changed = false;
-      const activeBubbles = s.bubbles.map(b => {
+      let activeBubbles = s.bubbles.map(b => {
         const bCopy = { ...b };
         
         // Mover hacia arriba
@@ -214,54 +214,50 @@ const MathAbacusModule = memo(({ addPoints }) => {
         changed = true;
       }
 
-      // 3. Chequear colisiones de cursor (Dwell Hover y selección rápida)
-      activeBubbles.forEach(b => {
-        let isHovered = false;
+      // 3. Chequear colisiones de cursor y pinch (selección mediante pinza)
+      if (!s.wasPinching) {
+        s.wasPinching = [false, false];
+      }
 
-        mappedCursors.forEach(cursor => {
-          // Medir distancia en porcentaje de pantalla aproximada
-          const dx = b.x - cursor.x;
-          const dy = b.y - cursor.y;
-          // Ajustar radio a porcentaje (ej. 35px aprox. es 5% del ancho de pantalla)
-          const dist = Math.hypot(dx, dy);
-          if (dist < 6.5) {
-            isHovered = true;
-          }
-        });
+      mappedCursors.forEach((cursor, handIdx) => {
+        if (!cursor.isVisible) return;
+        const isPinching = gestures[handIdx]?.isPinching;
+        const startedPinching = isPinching && !s.wasPinching[handIdx];
+        s.wasPinching[handIdx] = isPinching;
 
-        if (isHovered) {
-          s.hoverStates[b.id] = (s.hoverStates[b.id] || 0) + 1;
-          changed = true;
+        if (startedPinching) {
+          let hitBubble = null;
+          activeBubbles.forEach(b => {
+            const dx = b.x - cursor.x;
+            const dy = b.y - cursor.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 7.0) { // Radio de colisión
+              hitBubble = b;
+            }
+          });
 
-          // Efecto de pulso en el hover
-          b.pulse = 1.1 + Math.sin(Date.now() / 80) * 0.05;
-
-          // Dwell-click exitoso al alcanzar 18 frames (~300ms)
-          if (s.hoverStates[b.id] === 18) {
-            s.hoverStates[b.id] = 0; // Resetear dwell
-            
-            if (b.isSelected) {
+          if (hitBubble) {
+            changed = true;
+            if (hitBubble.isSelected) {
               // Deseleccionar
-              b.isSelected = false;
-              s.selectedItems = s.selectedItems.filter(item => item.id !== b.id);
+              hitBubble.isSelected = false;
+              s.selectedItems = s.selectedItems.filter(item => item.id !== hitBubble.id);
               playSound('deselect');
             } else {
               // Seleccionar
-              b.isSelected = true;
-              s.selectedItems.push(b);
-              playSound('select', b.value);
+              hitBubble.isSelected = true;
+              s.selectedItems.push(hitBubble);
+              playSound('select', hitBubble.value);
 
               // Partículas al tocar la burbuja
-              const bx = (b.x / 100) * screenW;
-              const by = (b.y / 100) * screenH;
-              for (let k = 0; k < 8; k++) {
+              for (let k = 0; k < 10; k++) {
                 s.particles.push({
-                  x: b.x,
-                  y: b.y,
-                  vx: (Math.random() - 0.5) * 1.5,
-                  vy: (Math.random() - 0.5) * 1.5,
-                  decay: 0.04,
-                  alpha: 0.9,
+                  x: hitBubble.x,
+                  y: hitBubble.y,
+                  vx: (Math.random() - 0.5) * 2,
+                  vy: (Math.random() - 0.5) * 2,
+                  decay: 0.03,
+                  alpha: 1.0,
                   color: '#A78BFA'
                 });
               }
@@ -277,12 +273,12 @@ const MathAbacusModule = memo(({ addPoints }) => {
 
                 // Estallido de todas las burbujas seleccionadas
                 s.selectedItems.forEach(item => {
-                  for (let k = 0; k < 12; k++) {
+                  for (let k = 0; k < 15; k++) {
                     s.particles.push({
                       x: item.x,
                       y: item.y,
-                      vx: (Math.random() - 0.5) * 3,
-                      vy: (Math.random() - 0.5) * 3,
+                      vx: (Math.random() - 0.5) * 4,
+                      vy: (Math.random() - 0.5) * 4,
                       decay: 0.02,
                       alpha: 1.0,
                       color: '#34D399' // Verde éxito
@@ -292,7 +288,7 @@ const MathAbacusModule = memo(({ addPoints }) => {
 
                 // Eliminar burbujas seleccionadas del array de flotantes
                 const selectedIds = s.selectedItems.map(item => item.id);
-                s.bubbles = activeBubbles.filter(bubble => !selectedIds.includes(bubble.id));
+                activeBubbles = activeBubbles.filter(bubble => !selectedIds.includes(bubble.id));
                 s.selectedItems = [];
 
                 // Definir nueva suma objetivo o subir nivel
@@ -319,13 +315,6 @@ const MathAbacusModule = memo(({ addPoints }) => {
               }
             }
           }
-        } else {
-          // Desvanecer dwell si se aparta
-          if (s.hoverStates[b.id]) {
-            s.hoverStates[b.id] = Math.max(0, s.hoverStates[b.id] - 2);
-            b.pulse = 1.0;
-            changed = true;
-          }
         }
       });
 
@@ -350,8 +339,7 @@ const MathAbacusModule = memo(({ addPoints }) => {
     s.selectedItems = [];
     s.bubbles = [];
     s.particles = [];
-    s.streak = 0;
-    s.hoverStates = {};
+    s.wasPinching = [false, false];
 
     setLevel(1);
     setTargetSum(5);
@@ -362,6 +350,8 @@ const MathAbacusModule = memo(({ addPoints }) => {
     setParticles([]);
   };
 
+  const particles = stateRef.current.particles;
+  const bubbles = stateRef.current.bubbles;
   const hoverStates = stateRef.current.hoverStates;
 
   return (
@@ -420,7 +410,6 @@ const MathAbacusModule = memo(({ addPoints }) => {
       <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
         {bubbles.map(b => {
           const isErr = b.errorTimer > 0;
-          const progress = (hoverStates[b.id] || 0) / 18;
 
           return (
             <div
@@ -443,22 +432,6 @@ const MathAbacusModule = memo(({ addPoints }) => {
                 }`}
               >
                 {b.value}
-
-                {/* Dwell Progress Outer Ring */}
-                {progress > 0 && progress < 1 && (
-                  <svg className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] -rotate-90">
-                    <circle 
-                      cx="50%" 
-                      cy="50%" 
-                      r="46%" 
-                      fill="none" 
-                      stroke="#A78BFA" 
-                      strokeWidth="3.5"
-                      strokeDasharray="100" 
-                      strokeDashoffset={100 * (1 - progress)} 
-                    />
-                  </svg>
-                )}
               </div>
             </div>
           );
@@ -489,7 +462,7 @@ const MathAbacusModule = memo(({ addPoints }) => {
       <div className="absolute bottom-6 flex items-center gap-6 glass px-8 py-3.5 rounded-[24px] border border-white/10 animate-pulse z-30">
         <span className="text-2xl">🖐️</span>
         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/50 italic">
-          Manten tu mano sobre los números para seleccionarlos. ¡Debes sumar exactamente el valor objetivo!
+          Usa pinzas en el aire sobre los números para seleccionarlos. ¡Debes sumar exactamente el valor objetivo!
         </p>
       </div>
     </div>

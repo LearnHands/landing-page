@@ -121,7 +121,7 @@ const EcoGuardianModule = memo(({ addPoints }) => {
     const baseTemplate = ITEMS[Math.floor(Math.random() * ITEMS.length)];
     idCounter.current += 1;
 
-    const speedScale = 0.12 + Math.min(s.score * 0.0001, 0.15); // Aumenta velocidad con el puntaje
+    const speedScale = 0.28 + Math.min(s.score * 0.00012, 0.22); // Aumenta velocidad con el puntaje
     const newItem = {
       id: idCounter.current,
       ...baseTemplate,

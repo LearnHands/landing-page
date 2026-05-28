@@ -160,7 +160,7 @@ const SyllablesModule = memo(({ addPoints }) => {
       text: syllableText,
       x: 15 + Math.random() * 70,
       y: -10,
-      speed: 0.12 + Math.random() * 0.16,
+      speed: 0.35 + Math.random() * 0.2,
       radius: 6,
       isGrabbed: false,
       grabbedBy: null,
@@ -176,7 +176,7 @@ const SyllablesModule = memo(({ addPoints }) => {
       if (bubblesRef.current.length < 8 && !isWordWon) {
         spawnBubble();
       }
-    }, 1800);
+    }, 2200);
 
     return () => clearInterval(spawnTimerRef.current);
   }, [spawnBubble, isWordWon]);

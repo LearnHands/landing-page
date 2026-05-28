@@ -33,6 +33,8 @@ const EcoGuardianModule = memo(({ addPoints }) => {
   const [streak, setStreak] = useState(0);
   const [gameState, setGameState] = useState('PLAYING'); // PLAYING, GAMEOVER
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [items, setItems] = useState([]);
+  const [particles, setParticles] = useState([]);
 
   const audioCtxRef = useRef(null);
   const frameRef = useRef(null);
@@ -132,6 +134,7 @@ const EcoGuardianModule = memo(({ addPoints }) => {
     };
 
     s.items.push(newItem);
+    setItems([...s.items]);
   }, []);
 
   // Intervalo de Spawning
@@ -161,6 +164,8 @@ const EcoGuardianModule = memo(({ addPoints }) => {
     setLives(3);
     setStreak(0);
     setGameState('PLAYING');
+    setItems([]);
+    setParticles([]);
   };
 
   // Loop principal de físicas y colisiones
@@ -362,6 +367,8 @@ const EcoGuardianModule = memo(({ addPoints }) => {
       });
 
       s.items = filteredItems;
+      setItems(filteredItems);
+      setParticles([...s.particles]);
       if (changed) {
         syncStates();
       }
@@ -372,10 +379,6 @@ const EcoGuardianModule = memo(({ addPoints }) => {
     frameRef.current = requestAnimationFrame(updatePhysics);
     return () => cancelAnimationFrame(frameRef.current);
   }, [addPoints, playSound, syncStates]);
-
-  // Obtener partículas actuales para renderizar
-  const particles = stateRef.current.particles;
-  const items = stateRef.current.items;
 
   return (
     <div className="w-full h-full relative overflow-hidden select-none flex flex-col items-center justify-center">

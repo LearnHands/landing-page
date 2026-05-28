@@ -12,6 +12,8 @@ const MathAbacusModule = memo(({ addPoints }) => {
   const [selectedNumbers, setSelectedNumbers] = useState([]);
   const [streak, setStreak] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [bubbles, setBubbles] = useState([]);
+  const [particles, setParticles] = useState([]);
 
   const audioCtxRef = useRef(null);
   const frameRef = useRef(null);
@@ -142,6 +144,7 @@ const MathAbacusModule = memo(({ addPoints }) => {
     // Registrar baseX para mantener la oscilación en torno al centro del spawn
     newBubble.baseX = newBubble.x;
     s.bubbles.push(newBubble);
+    setBubbles([...s.bubbles]);
   }, []);
 
   // Intervalo de Spawning de Burbujas
@@ -316,6 +319,8 @@ const MathAbacusModule = memo(({ addPoints }) => {
       });
 
       s.bubbles = activeBubbles;
+      setBubbles(activeBubbles);
+      setParticles([...s.particles]);
       if (changed || activeBubbles.length > 0) {
         syncReactStates();
       }
@@ -347,6 +352,8 @@ const MathAbacusModule = memo(({ addPoints }) => {
 
   const particles = stateRef.current.particles;
   const bubbles = stateRef.current.bubbles;
+  const hoverStates = stateRef.current.hoverStates;
+
   return (
     <div className="w-full h-full relative overflow-hidden select-none flex flex-col items-center">
       

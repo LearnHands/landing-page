@@ -190,7 +190,7 @@ export const useMediaPipe = () => {
             const vh = videoRef.current.videoHeight;
             if (vw && vh) {
               const aspect = vw / vh;
-              const targetW = 240;
+              const targetW = 320;
               const targetH = Math.round(targetW / aspect);
               if (offscreenCanvas.width !== targetW || offscreenCanvas.height !== targetH) {
                 offscreenCanvas.width = targetW;

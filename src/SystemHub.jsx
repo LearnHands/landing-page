@@ -47,7 +47,7 @@ const SystemHub = ({ onExit }) => {
   };
 
   return (
-    <LayeredEngine videoRef={videoRef} isLoaded={isLoaded} error={error}>
+    <LayeredEngine videoRef={videoRef} isLoaded={isLoaded} error={error} transparent={!(view === 'GAME' && currentGame === 'PIZARRA')}>
       <AnimatePresence mode="wait">
         {view === 'HOME' && (
           <motion.div key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="flex-1 flex flex-col items-center justify-center p-20">

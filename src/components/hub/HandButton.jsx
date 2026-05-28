@@ -4,77 +4,99 @@ const HandButton = ({ children, onClick, dwellMs = 1000, className = "", variant
   const [isHovered, setIsHovered] = useState(false);
   const [progress, setProgress] = useState(0);
   const buttonRef = useRef(null);
-  const lastTimeRef = useRef(null);
   const frameRef = useRef(null);
 
+  // All RAF-internal values live in refs to avoid stale closures.
+  // The useEffect has [] deps — it never restarts due to state/prop changes.
+  const isHoveredRef = useRef(false);
+  const progressRef  = useRef(0);
+  const lastTimeRef  = useRef(null);
+  const cooldownRef  = useRef(false);
+  const onClickRef   = useRef(onClick);
+  onClickRef.current = onClick;            // always latest, no dep needed
+  const dwellMsRef   = useRef(dwellMs);
+  dwellMsRef.current = dwellMs;
+
   useEffect(() => {
+    const fire = () => {
+      onClickRef.current?.();
+      progressRef.current  = 0;
+      isHoveredRef.current = false;
+      setProgress(0);
+      setIsHovered(false);
+      cooldownRef.current = true;
+      // Brief cooldown prevents double-fire from a single gesture
+      setTimeout(() => {
+        cooldownRef.current = false;
+        frameRef.current = requestAnimationFrame(checkHit);
+      }, 600);
+    };
+
     const checkHit = () => {
+      if (cooldownRef.current) return;
+
       if (!buttonRef.current) {
         frameRef.current = requestAnimationFrame(checkHit);
         return;
       }
 
       const rect = buttonRef.current.getBoundingClientRect();
+      // Expand hit area for easier gesture targeting
       const hitRect = {
-        left: rect.left - 40,
-        right: rect.right + 40,
-        top: rect.top - 40,
+        left:   rect.left   - 40,
+        right:  rect.right  + 40,
+        top:    rect.top    - 40,
         bottom: rect.bottom + 40
       };
 
       let isPointingOver = false;
       let isPinchingOver = false;
 
-      // Access latest cursors from global state
       const handData = window.latestHandData || { cursors: [], gestures: [] };
-      const cursors = handData.cursors || [];
+      const cursors  = handData.cursors  || [];
       const gestures = handData.gestures || [];
 
       cursors.forEach((c, i) => {
         if (!c || !c.isVisible) return;
         const isOver = c.x >= hitRect.left && c.x <= hitRect.right &&
-                       c.y >= hitRect.top && c.y <= hitRect.bottom;
-        
+                       c.y >= hitRect.top  && c.y <= hitRect.bottom;
         if (isOver) {
           isPointingOver = true;
-          const g = gestures[i];
-          if (g?.isPinching) isPinchingOver = true;
+          if (gestures[i]?.isPinching) isPinchingOver = true;
         }
       });
 
       if (isPinchingOver) {
-        onClick?.();
-        setIsHovered(false);
-        setProgress(0);
-        // Delay next check to avoid rapid firing
-        setTimeout(() => {
-          frameRef.current = requestAnimationFrame(checkHit);
-        }, 600);
+        fire();
         return;
       }
 
       if (isPointingOver) {
-        if (!isHovered) {
+        if (!isHoveredRef.current) {
+          isHoveredRef.current = true;
           setIsHovered(true);
           lastTimeRef.current = Date.now();
         } else {
-          const now = Date.now();
-          const delta = now - lastTimeRef.current;
-          const newProgress = Math.min(progress + delta / dwellMs, 1);
-          setProgress(newProgress);
-
-          if (newProgress >= 1) {
-            onClick?.();
-            setIsHovered(false);
-            setProgress(0);
-          }
+          const now   = Date.now();
+          const delta = now - (lastTimeRef.current ?? now);
           lastTimeRef.current = now;
+          const newProgress = Math.min(progressRef.current + delta / dwellMsRef.current, 1);
+          progressRef.current = newProgress;
+          setProgress(newProgress);
+          if (newProgress >= 1) {
+            fire();
+            return;
+          }
         }
       } else {
-        if (isHovered) {
-          const newProgress = Math.max(progress - 0.05, 0);
+        if (isHoveredRef.current) {
+          const newProgress = Math.max(progressRef.current - 0.05, 0);
+          progressRef.current = newProgress;
           setProgress(newProgress);
-          if (newProgress === 0) setIsHovered(false);
+          if (newProgress === 0) {
+            isHoveredRef.current = false;
+            setIsHovered(false);
+          }
         }
       }
 
@@ -83,13 +105,13 @@ const HandButton = ({ children, onClick, dwellMs = 1000, className = "", variant
 
     frameRef.current = requestAnimationFrame(checkHit);
     return () => cancelAnimationFrame(frameRef.current);
-  }, [isHovered, progress, dwellMs, onClick]);
+  }, []); // Stable loop — never restarts; all live values are in refs
 
   const variants = {
-    purple: "from-purple-600 to-indigo-600",
-    cyan: "from-cyan-500 to-teal-500",
-    orange: "from-orange-500 to-amber-500",
-    red: "from-red-600 to-rose-600",
+    purple:  "from-purple-600 to-indigo-600",
+    cyan:    "from-cyan-500 to-teal-500",
+    orange:  "from-orange-500 to-amber-500",
+    red:     "from-red-600 to-rose-600",
     emerald: "from-emerald-500 to-teal-600"
   };
 
@@ -100,7 +122,10 @@ const HandButton = ({ children, onClick, dwellMs = 1000, className = "", variant
     >
       <div className="relative z-10 flex items-center justify-center gap-3">{children}</div>
       {isHovered && (
-        <div className="absolute inset-0 bg-white/20 origin-left" style={{ transform: `scaleX(${progress})` }} />
+        <div
+          className="absolute inset-0 bg-white/20 origin-left"
+          style={{ transform: `scaleX(${progress})` }}
+        />
       )}
     </button>
   );

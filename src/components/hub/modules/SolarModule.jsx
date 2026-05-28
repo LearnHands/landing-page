@@ -88,6 +88,11 @@ const SolarModule = memo(({ addPoints }) => {
   const audioCtxRef = useRef(null);
   const frameRef = useRef(null);
 
+  const addPointsRef = useRef(addPoints);
+  addPointsRef.current = addPoints;
+  const soundEnabledRef = useRef(soundEnabled);
+  soundEnabledRef.current = soundEnabled;
+
   // Estado del juego en Ref para lectura a 60 FPS
   const stateRef = useRef({
     level: 0,
@@ -130,7 +135,7 @@ const SolarModule = memo(({ addPoints }) => {
 
   // Sintetizador de audio Web Audio API
   const playSound = useCallback((type, stepIdx = 0) => {
-    if (!soundEnabled) return;
+    if (!soundEnabledRef.current) return;
     try {
       if (!audioCtxRef.current) {
         audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -181,7 +186,7 @@ const SolarModule = memo(({ addPoints }) => {
     } catch (e) {
       console.warn("Audio failed", e);
     }
-  }, [soundEnabled]);
+  }, []);
 
   // Avanzar nivel
   const handleNextLevel = () => {
@@ -448,7 +453,7 @@ const SolarModule = memo(({ addPoints }) => {
               state.gameState = 'WIN';
               setGameState('WIN');
               playSound('win');
-              addPoints(150);
+              addPointsRef.current(150);
 
               // Gran explosión cósmica en el centro
               for (let k = 0; k < 50; k++) {
@@ -522,7 +527,7 @@ const SolarModule = memo(({ addPoints }) => {
       cancelAnimationFrame(frameRef.current);
       window.removeEventListener('resize', resizeCanvas);
     };
-  }, [level, addPoints, playSound]);
+  }, [level]);
 
   return (
     <div className="w-full h-full relative overflow-hidden bg-transparent flex items-center justify-center select-none">
@@ -541,17 +546,16 @@ const SolarModule = memo(({ addPoints }) => {
         {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
       </button>
 
-      {/* Banner Superior de Instrucciones */}
-      <div className="absolute top-[28%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-4 text-center z-20 w-full max-w-lg px-6">
-        <motion.div 
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="glass-dark px-8 py-4 rounded-[28px] border border-white/10 shadow-2xl flex flex-col items-center gap-2"
+      {/* Banner Superior de Instrucciones — compact chip at very top */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+        <motion.div
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="glass-dark px-6 py-2.5 rounded-2xl border border-white/10 shadow-xl flex items-center gap-3"
         >
-          <div className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.4em] mb-1">Navegador Estelar</div>
-          <h2 className="text-3xl md:text-4xl font-display font-black uppercase italic tracking-wider text-gradient flex items-center gap-3">
-            <Compass className="text-cyan-400 animate-spin-slow" size={24} /> {currentConstellation.name}
-          </h2>
+          <Compass className="text-cyan-400 animate-spin-slow" size={16} />
+          <span className="text-[11px] font-black uppercase tracking-[0.3em] text-gradient">{currentConstellation.name}</span>
+          <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest">{currentConstellation.symbol}</span>
         </motion.div>
       </div>
 
@@ -573,34 +577,34 @@ const SolarModule = memo(({ addPoints }) => {
         )}
       </AnimatePresence>
 
-      {/* Tarjeta de constelación completada */}
+      {/* Tarjeta de constelación completada — compact panel on the right side */}
       <AnimatePresence>
         {gameState === 'WIN' && (
-          <motion.div 
-            initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            className="absolute bottom-[22%] left-1/2 -translate-x-1/2 w-full max-w-md z-40 glass-dark p-8 rounded-[40px] border border-white/10 shadow-2xl space-y-6 bg-black/60 backdrop-blur-lg flex flex-col items-center"
+          <motion.div
+            initial={{ x: 120, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 120, opacity: 0 }}
+            className="absolute right-6 top-1/2 -translate-y-1/2 w-64 z-40 glass-dark p-5 rounded-[28px] border border-white/10 shadow-2xl bg-black/70 backdrop-blur-lg flex flex-col items-center gap-4"
           >
-            <div className="flex flex-col items-center gap-3 text-center">
-              <div className="text-6xl animate-pulse">{currentConstellation.symbol}</div>
-              <h3 className="text-3xl font-display font-black italic uppercase text-gradient">¡Completado!</h3>
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-400">Constelación revelada con éxito</p>
+            <div className="flex flex-col items-center gap-1.5 text-center">
+              <div className="text-4xl animate-pulse">{currentConstellation.symbol}</div>
+              <h3 className="text-xl font-display font-black italic uppercase text-gradient leading-tight">¡Completado!</h3>
+              <p className="text-[8px] font-black uppercase tracking-[0.2em] text-cyan-400">Constelación revelada</p>
             </div>
 
-            <div className="bg-white/5 border border-white/5 p-5 rounded-2xl">
-              <p className="text-xs text-white/70 leading-relaxed font-semibold italic text-center">
+            <div className="bg-white/5 border border-white/5 p-3.5 rounded-xl w-full">
+              <p className="text-[10px] text-white/65 leading-relaxed font-semibold italic text-center">
                 "{currentConstellation.fact}"
               </p>
             </div>
 
-            <HandButton 
+            <HandButton
               onClick={handleNextLevel}
-              className="px-12 py-5 text-xs w-full"
+              className="px-6 py-3.5 text-[10px] w-full"
               variant="cyan"
               dwellMs={800}
             >
-              SIGUIENTE MAPA <ArrowRight size={16} />
+              SIGUIENTE <ArrowRight size={13} />
             </HandButton>
           </motion.div>
         )}

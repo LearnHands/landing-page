@@ -31,17 +31,20 @@ const MathAbacusModule = memo(({ addPoints }) => {
     wasPinching: [false, false]
   });
 
-  // Sincronizar estados visuales con React
+  // Stable sync — no state captures; React bails out on unchanged values automatically.
   const syncReactStates = useCallback(() => {
     const s = stateRef.current;
-    if (s.level !== level) setLevel(s.level);
-    if (s.targetSum !== targetSum) setTargetSum(s.targetSum);
-    if (s.streak !== streak) setStreak(s.streak);
-
+    setLevel(s.level);
+    setTargetSum(s.targetSum);
+    setStreak(s.streak);
     const sum = s.selectedItems.reduce((acc, curr) => acc + curr.value, 0);
     setCurrentSum(sum);
     setSelectedNumbers(s.selectedItems.map(item => item.value));
-  }, [level, targetSum, streak]);
+  }, []);
+
+  const addPointsRef = useRef(addPoints);
+  addPointsRef.current = addPoints;
+  const playSoundRef = useRef(null);
 
   // Sintetizar tonos de audio Web Audio API
   const playSound = useCallback((type, value = 0) => {
@@ -104,6 +107,7 @@ const MathAbacusModule = memo(({ addPoints }) => {
       console.warn("Audio failed", e);
     }
   }, [soundEnabled]);
+  playSoundRef.current = playSound;
 
   // Generar burbuja de número flotante
   const spawnBubble = useCallback(() => {
@@ -244,12 +248,12 @@ const MathAbacusModule = memo(({ addPoints }) => {
               // Deseleccionar
               hitBubble.isSelected = false;
               s.selectedItems = s.selectedItems.filter(item => item.id !== hitBubble.id);
-              playSound('deselect');
+              playSoundRef.current('deselect');
             } else {
               // Seleccionar
               hitBubble.isSelected = true;
               s.selectedItems.push(hitBubble);
-              playSound('select', hitBubble.value);
+              playSoundRef.current('select', hitBubble.value);
 
               // Partículas al tocar la burbuja
               for (let k = 0; k < 10; k++) {
@@ -269,8 +273,8 @@ const MathAbacusModule = memo(({ addPoints }) => {
               
               if (totalSum === s.targetSum) {
                 // ¡Suma Completada con éxito!
-                playSound('match_ok');
-                addPoints(70);
+                playSoundRef.current('match_ok');
+                addPointsRef.current(70);
                 s.streak += 1;
 
                 // Estallido de todas las burbujas seleccionadas
@@ -301,7 +305,7 @@ const MathAbacusModule = memo(({ addPoints }) => {
 
               } else if (totalSum > s.targetSum) {
                 // ¡Superó el límite! (Error)
-                playSound('overlimit');
+                playSoundRef.current('overlimit');
                 s.streak = 0;
 
                 // Animar sacudida (shake)
@@ -332,7 +336,7 @@ const MathAbacusModule = memo(({ addPoints }) => {
 
     frameRef.current = requestAnimationFrame(updatePhysics);
     return () => cancelAnimationFrame(frameRef.current);
-  }, [addPoints, playSound, syncReactStates]);
+  }, []); // Stable loop: callbacks via refs, syncReactStates is stable ([] deps)
 
   const resetGame = () => {
     const s = stateRef.current;

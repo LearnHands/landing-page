@@ -128,22 +128,26 @@ const BricksModule = memo(({ addPoints }) => {
     height: window.innerHeight,
   });
 
-  // Sincronizar estado mutable con el visual reactivo
+  // Stable sync — no state captures in closure so the game loop effect never restarts.
+  // React bails out on setState calls with unchanged values (Object.is), so calling
+  // unconditionally does not cause extra re-renders.
   const syncReactState = useCallback(() => {
     const s = stateRef.current;
-    if (s.score !== score) setScore(s.score);
-    if (s.level !== level) setLevel(s.level);
-    if (s.lives !== lives) setLives(s.lives);
-    if (s.gameState !== gameState) setGameState(s.gameState);
+    setScore(s.score);
+    setLevel(s.level);
+    setLives(s.lives);
+    setGameState(s.gameState);
 
     const active = Object.keys(s.activePowerups).filter(k => s.activePowerups[k] > 0);
-    if (active.length > 0) {
-      const labels = active.map(k => POWERUPS[k]?.label).join(' + ');
-      setActivePowerupLabel(labels);
-    } else {
-      setActivePowerupLabel(null);
-    }
-  }, [score, level, lives, gameState]);
+    setActivePowerupLabel(
+      active.length > 0 ? active.map(k => POWERUPS[k]?.label).join(' + ') : null
+    );
+  }, []); // [] = stable reference; removing stale-captured state vars
+
+  // Keep a ref so the game loop can always reach the latest addPoints without
+  // needing it in effect deps (which would restart the loop on every parent render).
+  const addPointsRef = useRef(addPoints);
+  addPointsRef.current = addPoints;
 
   // Alternar volumen
   const toggleMute = () => {
@@ -413,7 +417,7 @@ const BricksModule = memo(({ addPoints }) => {
             const damage = ball.isFire ? 3 : 1;
             brick.hp -= damage;
             s.score += 10;
-            addPoints(10);
+            addPointsRef.current(10);
 
             if (brick.hp > 0) {
               soundCtrl.playHitBrick(brick.hp);
@@ -421,7 +425,7 @@ const BricksModule = memo(({ addPoints }) => {
             } else {
               soundCtrl.playBreakBrick();
               s.score += 50;
-              addPoints(50);
+              addPointsRef.current(50);
               spawnParticles(brick.x + brick.w / 2, brick.y + brick.h / 2, brick.color, 24);
 
               if (Math.random() < 0.3 || brick.type !== 'normal') {
@@ -490,12 +494,12 @@ const BricksModule = memo(({ addPoints }) => {
           ) {
             brick.hp -= 1;
             s.score += 5;
-            addPoints(5);
+            addPointsRef.current(5);
             spawnParticles(laser.x, laser.y, '#F59E0B', 6);
             if (brick.hp <= 0) {
               soundCtrl.playBreakBrick();
               s.score += 50;
-              addPoints(50);
+              addPointsRef.current(50);
               spawnParticles(brick.x + brick.w / 2, brick.y + brick.h / 2, brick.color, 20);
             } else {
               soundCtrl.playHitBrick(brick.hp);
@@ -641,8 +645,8 @@ const BricksModule = memo(({ addPoints }) => {
       const s = stateRef.current;
       ctx.clearRect(0, 0, s.width, s.height);
 
-      // Fondo semi-transparente cyber neon
-      ctx.fillStyle = 'rgba(3, 3, 11, 0.25)';
+      // Subtle dark tint so game elements stay readable over the camera feed
+      ctx.fillStyle = 'rgba(3, 3, 11, 0.10)';
       ctx.fillRect(0, 0, s.width, s.height);
 
       // Rejilla neón
@@ -869,7 +873,7 @@ const BricksModule = memo(({ addPoints }) => {
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', handleResize);
     };
-  }, [addPoints, syncReactState]);
+  }, []); // Stable loop: addPoints via addPointsRef, syncReactState is stable ([] deps)
 
   useEffect(() => {
     return () => {

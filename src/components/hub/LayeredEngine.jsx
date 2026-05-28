@@ -1,6 +1,8 @@
 import React, { useRef, useEffect } from 'react';
 
-const LayeredEngine = ({ children, videoRef, isLoaded, error }) => {
+// transparent=true  → bright camera feed, barely-visible overlay (all modules except Pizarra)
+// transparent=false → dark/greyscale camera, heavier overlay (Pizarra drawing mode)
+const LayeredEngine = ({ children, videoRef, isLoaded, error, transparent = false }) => {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -132,17 +134,24 @@ const LayeredEngine = ({ children, videoRef, isLoaded, error }) => {
     <div className="fixed inset-0 bg-[#03030b] overflow-hidden">
       {/* 1. Video Layer (Mirrored) */}
       <div className="absolute inset-0 z-0">
-        <video 
-          ref={videoRef} 
-          className="w-full h-full object-cover opacity-60 grayscale brightness-90 scale-x-[-1]" 
-          autoPlay 
-          playsInline 
+        <video
+          ref={videoRef}
+          className={`w-full h-full object-cover scale-x-[-1] ${
+            transparent
+              ? 'opacity-90'
+              : 'opacity-60 grayscale brightness-90'
+          }`}
+          autoPlay
+          playsInline
           muted
         />
       </div>
 
-      {/* 2. Overlay Layer (Glassmorphism) */}
-      <div className="absolute inset-0 z-10 bg-black/20 backdrop-blur-[2px] pointer-events-none" />
+      {/* 2. Overlay Layer — near-invisible in transparent mode, dark in Pizarra mode */}
+      <div
+        className="absolute inset-0 z-10 pointer-events-none"
+        style={{ background: transparent ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.20)', backdropFilter: transparent ? 'none' : 'blur(2px)' }}
+      />
 
       {/* 3. Landmarks Layer (Neon) */}
       <canvas 

@@ -1,5 +1,48 @@
 import React, { useRef, useEffect } from 'react';
 
+// Hand skeleton connections (21 MediaPipe landmarks)
+const CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],          // thumb
+  [0,5],[5,6],[6,7],[7,8],          // index
+  [5,9],[9,10],[10,11],[11,12],     // middle
+  [9,13],[13,14],[14,15],[15,16],   // ring
+  [13,17],[17,18],[18,19],[19,20],  // pinky
+  [0,17],[0,5]                       // palm base
+];
+
+// Draw one hand's skeleton directly on the canvas — no CDN deps needed.
+// X is flipped (1 - lm.x) to match the CSS-mirrored video feed.
+const drawHand = (ctx, landmarks, color, w, h) => {
+  const px = (lm) => (1 - lm.x) * w;
+  const py = (lm) => lm.y * h;
+
+  // Connections
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = color;
+  CONNECTIONS.forEach(([a, b]) => {
+    const la = landmarks[a];
+    const lb = landmarks[b];
+    if (!la || !lb) return;
+    ctx.beginPath();
+    ctx.moveTo(px(la), py(la));
+    ctx.lineTo(px(lb), py(lb));
+    ctx.stroke();
+  });
+  // Dots
+  ctx.shadowBlur = 6;
+  ctx.shadowColor = '#06B6D4';
+  landmarks.forEach((lm, idx) => {
+    const isKnuckle = [0, 5, 9, 13, 17].includes(idx);
+    ctx.fillStyle = isKnuckle ? '#ffffff' : '#06B6D4';
+    ctx.beginPath();
+    ctx.arc(px(lm), py(lm), isKnuckle ? 4 : 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.shadowBlur = 0;
+};
+
 // transparent=true  → bright camera feed, barely-visible overlay (all modules except Pizarra)
 // transparent=false → dark/greyscale camera, heavier overlay (Pizarra drawing mode)
 const LayeredEngine = ({ children, videoRef, isLoaded, error, transparent = false }) => {
@@ -7,7 +50,7 @@ const LayeredEngine = ({ children, videoRef, isLoaded, error, transparent = fals
 
   useEffect(() => {
     let animId;
-    
+
     // Trail position storage for smoothing
     const trails = [
       { x: 0, y: 0, initialized: false },
@@ -23,31 +66,21 @@ const LayeredEngine = ({ children, videoRef, isLoaded, error, transparent = fals
       // A. DIBUJAR LANDMARKS EN CANVAS NATIVO
       const canvas = canvasRef.current;
       if (canvas && isLoaded) {
-        if (videoRef?.current) {
-          const vw = videoRef.current.videoWidth;
-          const vh = videoRef.current.videoHeight;
-          if (vw && vh) {
-            if (canvas.width !== vw || canvas.height !== vh) {
-              canvas.width = vw;
-              canvas.height = vh;
-            }
-          }
+        // Match canvas to screen size so landmark coords (normalised 0-1) map correctly
+        const sw = window.innerWidth;
+        const sh = window.innerHeight;
+        if (canvas.width !== sw || canvas.height !== sh) {
+          canvas.width  = sw;
+          canvas.height = sh;
         }
 
         const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, sw, sh);
 
         if (landmarks.length > 0) {
           landmarks.forEach((handLandmarks, i) => {
             const color = i === 0 ? '#7C3AED' : '#EC4899';
-            
-            if (window.drawConnectors && window.HAND_CONNECTIONS) {
-              window.drawConnectors(ctx, handLandmarks, window.HAND_CONNECTIONS, { color, lineWidth: 4 });
-            }
-            
-            if (window.drawLandmarks) {
-              window.drawLandmarks(ctx, handLandmarks, { color: '#06B6D4', lineWidth: 1, radius: 2 });
-            }
+            drawHand(ctx, handLandmarks, color, sw, sh);
           });
         }
       }
@@ -78,8 +111,8 @@ const LayeredEngine = ({ children, videoRef, isLoaded, error, transparent = fals
             trail.y = cursor.y;
             trail.initialized = true;
           } else {
-            trail.x += (cursor.x - trail.x) * 0.18;
-            trail.y += (cursor.y - trail.y) * 0.18;
+            trail.x += (cursor.x - trail.x) * 0.45;
+            trail.y += (cursor.y - trail.y) * 0.45;
           }
 
           if (trailEl) {
@@ -154,9 +187,9 @@ const LayeredEngine = ({ children, videoRef, isLoaded, error, transparent = fals
       />
 
       {/* 3. Landmarks Layer (Neon) */}
-      <canvas 
-        ref={canvasRef} 
-        className="absolute inset-0 w-full h-full object-cover z-20 pointer-events-none scale-x-[-1] opacity-60" 
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full z-20 pointer-events-none opacity-70"
       />
 
       {/* 4. UI Layer (Transparent Content) */}

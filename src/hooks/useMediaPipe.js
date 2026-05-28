@@ -8,9 +8,14 @@ let globalHandsPromise = null;
 const distance2D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const isFingerExt = (tip, pip) => tip.y < pip.y;
 
+let lastPinchStates = [false, false];
+
 const calculateGestures = (multiHandLandmarks) => {
-  if (!multiHandLandmarks || multiHandLandmarks.length === 0) return [];
-  return multiHandLandmarks.map((landmarks) => {
+  if (!multiHandLandmarks || multiHandLandmarks.length === 0) {
+    lastPinchStates = [false, false];
+    return [];
+  }
+  return multiHandLandmarks.map((landmarks, handIdx) => {
     const thumbTip = landmarks[4];
     const indexTip = landmarks[8];
     const indexPip = landmarks[6];
@@ -22,7 +27,13 @@ const calculateGestures = (multiHandLandmarks) => {
     const pinkyPip = landmarks[18];
 
     const dist = distance2D(thumbTip, indexTip);
-    const isPinching = dist < 0.08;
+    
+    // Histeresis: más fácil mantener la pinza (0.12) que iniciarla (0.085)
+    const wasPinching = lastPinchStates[handIdx] || false;
+    const threshold = wasPinching ? 0.12 : 0.085;
+    const isPinching = dist < threshold;
+    
+    lastPinchStates[handIdx] = isPinching;
 
     const indexExt = isFingerExt(indexTip, indexPip);
     const middleExt = isFingerExt(middleTip, middlePip);
@@ -94,6 +105,7 @@ export const useMediaPipe = () => {
       tracks.forEach(track => track.stop());
       videoRef.current.srcObject = null;
     }
+    lastPinchStates = [false, false];
     window.latestHandData = { landmarks: [], cursors: [], gestures: [] };
     setData(prev => ({ ...prev, isDetecting: false }));
   }, []);

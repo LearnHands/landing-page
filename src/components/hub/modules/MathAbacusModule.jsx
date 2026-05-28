@@ -167,13 +167,15 @@ const MathAbacusModule = memo(({ addPoints }) => {
       const s = stateRef.current;
 
       // Obtener datos globales de la IA
-      const handData = window.latestHandData || { cursors: [] };
+      const handData = window.latestHandData || { cursors: [], gestures: [] };
       const cursors = handData.cursors || [];
+      const gestures = handData.gestures || [];
 
-      // Mapear cursores válidos a porcentajes
-      const mappedCursors = cursors.filter(c => c && c.isVisible).map(c => ({
+      // Mapear cursores a porcentaje conservando índices
+      const mappedCursors = cursors.map(c => ({
         x: (c.x / screenW) * 100,
-        y: (c.y / screenH) * 100
+        y: (c.y / screenH) * 100,
+        isVisible: c.isVisible
       }));
 
       // 1. Partículas flotando y cayendo

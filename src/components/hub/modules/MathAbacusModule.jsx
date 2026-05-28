@@ -350,10 +350,6 @@ const MathAbacusModule = memo(({ addPoints }) => {
     setParticles([]);
   };
 
-  const particles = stateRef.current.particles;
-  const bubbles = stateRef.current.bubbles;
-  const hoverStates = stateRef.current.hoverStates;
-
   return (
     <div className="w-full h-full relative overflow-hidden select-none flex flex-col items-center">
       

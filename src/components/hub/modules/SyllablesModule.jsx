@@ -225,6 +225,40 @@ const SyllablesModule = memo(({ addPoints }) => {
               bCopy.x = cursor.x;
               bCopy.y = cursor.y;
               bCopy.pulse = 1.15;
+
+              // Check collision with correct slot while dragging
+              const N = currentWord.syllables.length;
+              for (let i = 0; i < N; i++) {
+                if (slotsRef.current[i] !== null) continue;
+
+                const slotEl = document.getElementById(`syllable-slot-${i}`);
+                if (slotEl) {
+                  const rect = slotEl.getBoundingClientRect();
+                  const slotPixelX = rect.left + rect.width / 2;
+                  const slotPixelY = rect.top + rect.height / 2;
+
+                  const bubblePixelX = (bCopy.x / 100) * screenW;
+                  const bubblePixelY = (bCopy.y / 100) * screenH;
+
+                  const distToSlot = Math.hypot(bubblePixelX - slotPixelX, bubblePixelY - slotPixelY);
+
+                  if (distToSlot < 80) {
+                    if (currentWord.syllables[i] === bCopy.text) {
+                      setSlots(prev => {
+                        const copy = [...prev];
+                        copy[i] = bCopy.text;
+                        return copy;
+                      });
+                      playSound('snap');
+                      addPoints(50);
+                      
+                      delete draggingRef.current[bCopy.grabbedBy];
+                      bCopy.shouldRemove = true;
+                      break;
+                    }
+                  }
+                }
+              }
             } else {
               bCopy.isGrabbed = false;
               bCopy.grabbedBy = null;
@@ -237,7 +271,7 @@ const SyllablesModule = memo(({ addPoints }) => {
             bubblesChanged = true;
           }
           return bCopy;
-        }).filter(b => b.y < 108);
+        }).filter(b => b.y < 108 && !b.shouldRemove);
 
         // Check for grabs
         mappedCursors.forEach((cursor, handIdx) => {
@@ -277,26 +311,58 @@ const SyllablesModule = memo(({ addPoints }) => {
                 for (let i = 0; i < N; i++) {
                   if (slotsRef.current[i] !== null) continue;
 
-                  const slotX = 50 + (i - (N - 1) / 2) * 15;
-                  const slotY = 78;
-                  const distToSlot = Math.hypot(bubble.x - slotX, bubble.y - slotY);
+                  const slotEl = document.getElementById(`syllable-slot-${i}`);
+                  if (slotEl) {
+                    const rect = slotEl.getBoundingClientRect();
+                    const slotPixelX = rect.left + rect.width / 2;
+                    const slotPixelY = rect.top + rect.height / 2;
 
-                  if (distToSlot < 8.5) {
-                    if (currentWord.syllables[i] === bubble.text) {
-                      setSlots(prev => {
-                        const copy = [...prev];
-                        copy[i] = bubble.text;
-                        return copy;
-                      });
-                      playSound('snap');
-                      addPoints(50);
-                      
-                      nextBubbles.splice(bIdx, 1);
-                      snapped = true;
-                      bubblesChanged = true;
-                      break;
-                    } else {
-                      playSound('error');
+                    const bubblePixelX = (bubble.x / 100) * screenW;
+                    const bubblePixelY = (bubble.y / 100) * screenH;
+
+                    const distToSlot = Math.hypot(bubblePixelX - slotPixelX, bubblePixelY - slotPixelY);
+
+                    if (distToSlot < 80) {
+                      if (currentWord.syllables[i] === bubble.text) {
+                        setSlots(prev => {
+                          const copy = [...prev];
+                          copy[i] = bubble.text;
+                          return copy;
+                        });
+                        playSound('snap');
+                        addPoints(50);
+                        
+                        nextBubbles.splice(bIdx, 1);
+                        snapped = true;
+                        bubblesChanged = true;
+                        break;
+                      } else {
+                        playSound('error');
+                      }
+                    }
+                  } else {
+                    // Fallback
+                    const slotX = 50 + (i - (N - 1) / 2) * 15;
+                    const slotY = 78;
+                    const distToSlot = Math.hypot(bubble.x - slotX, bubble.y - slotY);
+
+                    if (distToSlot < 8.5) {
+                      if (currentWord.syllables[i] === bubble.text) {
+                        setSlots(prev => {
+                          const copy = [...prev];
+                          copy[i] = bubble.text;
+                          return copy;
+                        });
+                        playSound('snap');
+                        addPoints(50);
+                        
+                        nextBubbles.splice(bIdx, 1);
+                        snapped = true;
+                        bubblesChanged = true;
+                        break;
+                      } else {
+                        playSound('error');
+                      }
                     }
                   }
                 }
@@ -412,6 +478,7 @@ const SyllablesModule = memo(({ addPoints }) => {
               className="flex flex-col items-center gap-3"
             >
               <motion.div
+                id={`syllable-slot-${i}`}
                 animate={{
                   borderColor: slots[i] ? '#22C55E' : '#A78BFA',
                   boxShadow: slots[i] ? '0 0 30px rgba(34, 197, 94, 0.4)' : '0 0 15px rgba(167, 139, 250, 0.1)',

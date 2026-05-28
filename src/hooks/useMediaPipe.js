@@ -178,11 +178,30 @@ export const useMediaPipe = () => {
         try { await videoRef.current.play(); } catch (e) {}
       }
 
+      const offscreenCanvas = document.createElement('canvas');
+      const offscreenCtx = offscreenCanvas.getContext('2d');
+
       const process = async () => {
         if (!isActiveRef.current || !globalHandsInstance) return;
         if (videoRef.current && videoRef.current.readyState >= 2 && !isProcessingRef.current) {
           isProcessingRef.current = true;
-          try { await globalHandsInstance.send({ image: videoRef.current }); } catch (e) {}
+          try {
+            const vw = videoRef.current.videoWidth;
+            const vh = videoRef.current.videoHeight;
+            if (vw && vh) {
+              const aspect = vw / vh;
+              const targetW = 320;
+              const targetH = Math.round(targetW / aspect);
+              if (offscreenCanvas.width !== targetW || offscreenCanvas.height !== targetH) {
+                offscreenCanvas.width = targetW;
+                offscreenCanvas.height = targetH;
+              }
+              offscreenCtx.drawImage(videoRef.current, 0, 0, targetW, targetH);
+              await globalHandsInstance.send({ image: offscreenCanvas });
+            }
+          } catch (e) {
+            console.warn("MediaPipe send error:", e);
+          }
           isProcessingRef.current = false;
         }
         if (isActiveRef.current) requestAnimationFrame(process);

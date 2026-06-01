@@ -123,68 +123,73 @@ const ShapesModule = memo(({ addPoints }) => {
   if (!target) return null;
 
   return (
-    <div className="w-full h-full flex flex-col items-center p-12 overflow-hidden bg-black/20 backdrop-blur-sm">
+    <div className="w-full h-full flex flex-col items-center justify-between px-6 py-4 overflow-hidden bg-black/20 backdrop-blur-sm">
       {/* Instruction Header */}
-      <div className="text-center space-y-6 mb-16">
-        <motion.div 
+      <div className="w-full flex flex-col items-center gap-2 shrink-0">
+        <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="glass-dark px-12 py-6 rounded-[30px] border border-white/10 shadow-2xl"
+          className="glass-dark px-8 py-3 rounded-[24px] border border-white/10 shadow-xl flex items-center gap-4"
         >
-          <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.4em] mb-2">Instrucción</p>
-          <h2 className="text-4xl md:text-5xl font-display font-black italic uppercase tracking-tighter">
-            Toca el <span style={{ color: target.color.hex }}>{target.shape.name} {target.color.name}</span>
+          <p className="text-white/30 text-[9px] font-black uppercase tracking-[0.4em]">Toca el</p>
+          <h2 className="text-2xl md:text-3xl font-display font-black italic uppercase tracking-tighter" style={{ color: target.color.hex }}>
+            {target.shape.name} {target.color.name}
           </h2>
+          <AnimatePresence>
+            {streak > 1 && (
+              <motion.span
+                initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
+                className="flex items-center gap-1 text-amber-400 font-black italic uppercase text-[10px] ml-2"
+              >
+                <Star size={12} fill="currentColor" className="animate-pulse" />
+                ×{streak}
+              </motion.span>
+            )}
+          </AnimatePresence>
         </motion.div>
-        
-        {/* Streak Indicator */}
-        <AnimatePresence>
-          {streak > 1 && (
-            <motion.div 
-              initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-              className="flex items-center justify-center gap-2 text-amber-400 font-black italic uppercase text-xs"
-            >
-              <Star size={16} fill="currentColor" className="animate-pulse" />
-              Racha x{streak}
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
-      {/* Options Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-12 max-w-5xl w-full">
-        {options.map((opt) => (
-          <motion.div
-            key={opt.id}
-            id={`opt-${opt.id}`}
-            whileHover={{ scale: 1.05 }}
-            className={`relative aspect-square glass rounded-[40px] border-4 flex items-center justify-center text-8xl shadow-2xl transition-all duration-300 ${
-              feedback === 'success' && opt.color.id === target.color.id && opt.shape.id === target.shape.id 
-                ? 'border-green-500 scale-110 shadow-green-500/40 bg-green-500/10' 
-                : feedback === 'error' && dwellProgress[opt.id] > 0.5
-                ? 'border-red-500 bg-red-500/10'
-                : 'border-white/5'
-            }`}
-            style={{ color: opt.color.hex }}
-          >
-            <span className="drop-shadow-2xl">{opt.shape.icon}</span>
-            
-            {dwellProgress[opt.id] > 0 && (
-              <svg className="absolute inset-0 w-full h-full p-2 -rotate-90 pointer-events-none">
-                <circle
-                  cx="50%" cy="50%" r="45%"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="4"
-                  strokeDasharray="283"
-                  strokeDashoffset={283 * (1 - dwellProgress[opt.id])}
-                  className="opacity-40"
-                />
-              </svg>
-            )}
-          </motion.div>
-        ))}
+      {/* Options Grid — fills remaining space */}
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center py-3">
+        <div className="grid grid-cols-3 gap-4 w-full max-w-4xl h-full" style={{ gridTemplateRows: 'repeat(2, minmax(0, 1fr))' }}>
+          {options.map((opt) => (
+            <motion.div
+              key={opt.id}
+              id={`opt-${opt.id}`}
+              whileHover={{ scale: 1.03 }}
+              className={`relative glass rounded-[28px] border-4 flex items-center justify-center shadow-xl transition-all duration-300 ${
+                feedback === 'success' && opt.color.id === target.color.id && opt.shape.id === target.shape.id
+                  ? 'border-green-500 scale-105 shadow-green-500/40 bg-green-500/10'
+                  : feedback === 'error' && dwellProgress[opt.id] > 0.5
+                  ? 'border-red-500 bg-red-500/10'
+                  : 'border-white/5'
+              }`}
+              style={{ color: opt.color.hex }}
+            >
+              <span className="text-6xl md:text-7xl drop-shadow-2xl select-none">{opt.shape.icon}</span>
+
+              {dwellProgress[opt.id] > 0 && (
+                <svg className="absolute inset-0 w-full h-full p-2 -rotate-90 pointer-events-none">
+                  <circle
+                    cx="50%" cy="50%" r="45%"
+                    fill="none"
+                    stroke="white"
+                    strokeWidth="4"
+                    strokeDasharray="283"
+                    strokeDashoffset={283 * (1 - dwellProgress[opt.id])}
+                    className="opacity-40"
+                  />
+                </svg>
+              )}
+            </motion.div>
+          ))}
+        </div>
       </div>
+
+      {/* Bottom hint */}
+      <p className="shrink-0 text-[9px] font-black uppercase tracking-[0.3em] text-white/20 pb-1">
+        Mueve tu mano sobre la opción correcta
+      </p>
 
       {/* Feedback Overlay */}
       <AnimatePresence>
@@ -195,36 +200,25 @@ const ShapesModule = memo(({ addPoints }) => {
             exit={{ opacity: 0, scale: 1.5 }}
             className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
           >
-            <div className={`p-12 rounded-[60px] glass-dark border-4 flex flex-col items-center gap-6 shadow-[0_0_100px_rgba(0,0,0,0.8)] ${
+            <div className={`px-10 py-8 rounded-[48px] glass-dark border-4 flex flex-col items-center gap-4 shadow-[0_0_100px_rgba(0,0,0,0.8)] ${
               feedback === 'success' ? 'border-green-500/50' : 'border-red-500/50'
             }`}>
               {feedback === 'success' ? (
                 <>
-                  <div className="w-32 h-32 bg-green-500/20 rounded-full flex items-center justify-center">
-                    <CheckCircle2 size={80} className="text-green-500" />
+                  <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center">
+                    <CheckCircle2 size={64} className="text-green-500" />
                   </div>
-                  <h3 className="text-5xl font-display font-black text-green-500 italic uppercase">¡Muy bien!</h3>
+                  <h3 className="text-4xl font-display font-black text-green-500 italic uppercase">¡Muy bien!</h3>
                 </>
               ) : (
                 <>
-                  <div className="w-32 h-32 bg-red-500/20 rounded-full flex items-center justify-center">
-                    <AlertCircle size={80} className="text-red-500" />
+                  <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center">
+                    <AlertCircle size={64} className="text-red-500" />
                   </div>
-                  <h3 className="text-5xl font-display font-black text-red-500 italic uppercase">¡Intenta de nuevo!</h3>
+                  <h3 className="text-4xl font-display font-black text-red-500 italic uppercase">¡Intenta de nuevo!</h3>
                 </>
               )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      
-      <AnimatePresence>
-        {!feedback && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 0.3 }}
-            className="mt-auto pb-8 text-[10px] font-black uppercase tracking-[0.3em] text-white/20"
-          >
-            Mueve tu mano sobre la opción correcta
           </motion.div>
         )}
       </AnimatePresence>

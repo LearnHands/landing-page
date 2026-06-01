@@ -106,31 +106,7 @@ const SystemHub = ({ onExit }) => {
 
         {view === 'GAME' && (
           <motion.div key="game" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col">
-            {/* Game Header */}
-            <div className="h-20 glass-dark border-b border-white/10 flex items-center justify-between px-12 z-[100] bg-black/40 backdrop-blur-md">
-              <div className="flex items-center gap-8">
-                <HandButton onClick={() => setView('MENU')} className="p-4" variant="red" dwellMs={800}><ArrowLeft size={20} /></HandButton>
-                <div className="flex items-center gap-4">
-                  <img src={puceLogo} alt="PUCE Logo" className="h-12 w-auto" />
-                  <div className="flex flex-col">
-                    <span className="text-[12px] font-black uppercase tracking-[0.4em] text-purple-400 italic">LearnHands Hub</span>
-                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Módulo: {currentGame}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-8 items-center">
-                <div className="glass px-6 py-3 rounded-2xl flex items-center gap-4 border border-white/10 shadow-xl bg-black/20">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_#22c55e]" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/60">IA Activa</span>
-                </div>
-                <div className="flex items-center gap-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 px-6 py-3 rounded-2xl border border-amber-500/30">
-                  <Trophy size={18} className="text-amber-400" />
-                  <span className="text-xl font-display font-black text-amber-400 italic">{score}</span>
-                </div>
-              </div>
-            </div>
-
+            {/* Game Content — fills all space above the footer bar */}
             <div className="flex-1 relative">
               {currentGame === 'PIZARRA' && <DrawingModule addPoints={addPoints} />}
               {currentGame === 'PIANO' && <PianoModule addPoints={addPoints} videoRef={videoRef} />}
@@ -142,12 +118,37 @@ const SystemHub = ({ onExit }) => {
               {currentGame === 'ECO' && <EcoGuardianModule addPoints={addPoints} />}
               {currentGame === 'ABACUS' && <MathAbacusModule addPoints={addPoints} />}
             </div>
+
+            {/* Game Footer Bar (moved from top to bottom) */}
+            <div className="h-16 glass-dark border-t border-white/10 flex items-center justify-between px-8 z-[100] bg-black/50 backdrop-blur-md">
+              <div className="flex items-center gap-6">
+                <HandButton onClick={() => setView('MENU')} className="p-3" variant="red" dwellMs={800}><ArrowLeft size={18} /></HandButton>
+                <div className="flex items-center gap-3">
+                  <img src={puceLogo} alt="PUCE Logo" className="h-9 w-auto" />
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-purple-400 italic">LearnHands Hub</span>
+                    <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest">Módulo: {currentGame}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-5 items-center">
+                <div className="glass px-4 py-2 rounded-xl flex items-center gap-3 border border-white/10 bg-black/20">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]" />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/50">IA Activa</span>
+                </div>
+                <div className="flex items-center gap-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 px-4 py-2 rounded-xl border border-amber-500/30">
+                  <Trophy size={14} className="text-amber-400" />
+                  <span className="text-lg font-display font-black text-amber-400 italic">{score}</span>
+                </div>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Global Score Widget (Persistent) */}
-      <div className="fixed bottom-8 right-8 z-50 pointer-events-none">
+      {/* Global Score Widget — only on HOME/MENU; GAME has its own footer bar */}
+      <div className={`fixed bottom-8 right-8 z-50 pointer-events-none transition-opacity ${view === 'GAME' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <div className="glass p-6 rounded-[32px] border border-white/10 shadow-2xl flex items-center gap-6 bg-black/40 backdrop-blur-md">
           <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center">
             <Trophy className="text-amber-400" size={24} />

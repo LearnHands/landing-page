@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 
-// Singleton to prevent re-initialization conflicts
-let globalHandsInstance = null;
-let globalHandsPromise = null;
+// Singleton — one HandLandmarker instance for the app's lifetime
+let handLandmarkerPromise = null;
+let handLandmarkerInstance = null;
 
 // --- GESTURE & CURSOR MATH HELPERS ---
 const distance3D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z - b.z) * 0.5);
 
 // Robust extension: tip must be clearly further from the MCP knuckle than the PIP joint.
-// Works regardless of hand orientation (up/down/sideways), unlike pure Y-axis comparison.
 const isFingerExt = (tip, pip, mcp) => {
   const tipToMcp = distance3D(tip, mcp);
   const pipToMcp = distance3D(pip, mcp);
@@ -17,14 +17,13 @@ const isFingerExt = (tip, pip, mcp) => {
 
 let lastPinchStates = [false, false];
 
-const calculateGestures = (multiHandLandmarks, multiHandedness) => {
-  if (!multiHandLandmarks || multiHandLandmarks.length === 0) {
+const calculateGestures = (allLandmarks, handednessList) => {
+  if (!allLandmarks || allLandmarks.length === 0) {
     lastPinchStates = [false, false];
     return [];
   }
-  return multiHandLandmarks.map((landmarks, handIdx) => {
-    // Skip low-confidence detections to reduce ghost gestures
-    const confidence = multiHandedness?.[handIdx]?.score ?? 1;
+  return allLandmarks.map((landmarks, handIdx) => {
+    const confidence = handednessList?.[handIdx]?.[0]?.score ?? 1;
     if (confidence < 0.5) {
       lastPinchStates[handIdx] = false;
       return { isPinching: false, isOpenHand: false, isIndexUp: false, indexTip: landmarks[8], landmarks };
@@ -64,22 +63,21 @@ const calculateGestures = (multiHandLandmarks, multiHandedness) => {
   });
 };
 
-const calculateCursors = (multiHandLandmarks, videoEl) => {
-  if (!multiHandLandmarks || multiHandLandmarks.length === 0) return [];
+const calculateCursors = (allLandmarks, videoEl) => {
+  if (!allLandmarks || allLandmarks.length === 0) return [];
 
   const vw = videoEl?.videoWidth || 1280;
   const vh = videoEl?.videoHeight || 720;
   const screenW = window.innerWidth;
   const screenH = window.innerHeight;
 
-  // Replicate CSS object-cover transform to map normalized hand coords to screen pixels
   const scale = Math.max(screenW / vw, screenH / vh);
   const scaledW = vw * scale;
   const scaledH = vh * scale;
   const offsetX = (scaledW - screenW) / 2;
   const offsetY = (scaledH - screenH) / 2;
 
-  return multiHandLandmarks.map((landmarks) => {
+  return allLandmarks.map((landmarks) => {
     const indexTip = landmarks[8];
     if (!indexTip) return { x: 0, y: 0, isVisible: false };
 
@@ -98,6 +96,13 @@ const calculateCursors = (multiHandLandmarks, videoEl) => {
   });
 };
 
+// Convert tasks-vision flat NormalizedLandmark[] (21 per hand) into the same
+// nested array format the rest of the app expects: [[{x,y,z}×21], ...]
+const convertLandmarks = (result) => {
+  if (!result?.landmarks?.length) return [];
+  return result.landmarks; // tasks-vision already returns [{x,y,z}] per hand
+};
+
 export const useMediaPipe = () => {
   const [data, setData] = useState({
     isLoaded: false,
@@ -107,13 +112,13 @@ export const useMediaPipe = () => {
 
   const videoRef = useRef(null);
   const isActiveRef = useRef(false);
-  const isProcessingRef = useRef(false);
+  const rafRef = useRef(null);
 
   const stopMediaPipe = useCallback(() => {
     isActiveRef.current = false;
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (videoRef.current?.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(t => t.stop());
       videoRef.current.srcObject = null;
     }
     lastPinchStates = [false, false];
@@ -127,116 +132,72 @@ export const useMediaPipe = () => {
     isActiveRef.current = true;
 
     try {
-      if (!globalHandsPromise) {
-        globalHandsPromise = (async () => {
-          const scripts = [
-            'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js',
-            'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js'
-          ];
-
-          for (const src of scripts) {
-            if (!document.querySelector(`script[src="${src}"]`)) {
-              await new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = src;
-                script.crossOrigin = 'anonymous';
-                script.onload = resolve;
-                script.onerror = () => reject(new Error(`Failed to load ${src}`));
-                document.head.appendChild(script);
-              });
-            }
-          }
-
-          const Hands = window.Hands;
-          const instance = new Hands({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
-          });
-
-          instance.setOptions({
-            maxNumHands: 2,
-            modelComplexity: 0,
-            minDetectionConfidence: 0.45,
+      // Build the HandLandmarker once for the whole app session
+      if (!handLandmarkerPromise) {
+        handLandmarkerPromise = (async () => {
+          const vision = await FilesetResolver.forVisionTasks(
+            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
+          );
+          return HandLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath:
+                'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+              delegate: 'GPU'
+            },
+            runningMode: 'VIDEO',
+            numHands: 2,
+            minHandDetectionConfidence: 0.45,
+            minHandPresenceConfidence: 0.45,
             minTrackingConfidence: 0.45
           });
-
-          await instance.initialize();
-          return instance;
         })();
       }
 
-      globalHandsInstance = await globalHandsPromise;
+      handLandmarkerInstance = await handLandmarkerPromise;
       if (!isActiveRef.current) return;
 
-      globalHandsInstance.onResults((results) => {
-        if (!isActiveRef.current || !results) return;
-
-        const found = !!(results.multiHandLandmarks && results.multiHandLandmarks.length > 0);
-        const landmarks = found ? [...results.multiHandLandmarks] : [];
-
-        const cursors  = calculateCursors(landmarks, videoRef.current);
-        const gestures = calculateGestures(landmarks, results.multiHandedness);
-
-        window.latestHandData = { landmarks, cursors, gestures };
-
-        setData(prev => {
-          if (prev.isDetecting === found && prev.isLoaded) return prev;
-          return { ...prev, isDetecting: found, isLoaded: true };
-        });
-      });
-
+      // Open webcam
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
       });
 
-      if (videoRef.current && isActiveRef.current) {
-        videoRef.current.srcObject = stream;
-        try { await videoRef.current.play(); } catch (e) {}
-      }
+      if (!isActiveRef.current) return;
+      videoRef.current.srcObject = stream;
+      try { await videoRef.current.play(); } catch (_) {}
 
-      const offscreenCanvas = document.createElement('canvas');
-      const offscreenCtx = offscreenCanvas.getContext('2d');
+      setData(prev => ({ ...prev, isLoaded: true }));
 
-      // Tight detection loop: chain the next frame immediately after MediaPipe finishes
-      // (not on the next vsync), maximising gesture update rate within browser limits.
+      let lastTimestamp = -1;
+
       const process = () => {
-        if (!isActiveRef.current || !globalHandsInstance) return;
+        if (!isActiveRef.current) return;
 
-        if (videoRef.current && videoRef.current.readyState >= 2 && !isProcessingRef.current) {
-          isProcessingRef.current = true;
-          try {
-            const vw = videoRef.current.videoWidth;
-            const vh = videoRef.current.videoHeight;
-            if (vw && vh) {
-              // 160px → ~4× fewer pixels than 320px; MediaPipe processes proportionally faster
-              const targetW = 160;
-              const targetH = Math.round(targetW / (vw / vh));
-              if (offscreenCanvas.width !== targetW || offscreenCanvas.height !== targetH) {
-                offscreenCanvas.width  = targetW;
-                offscreenCanvas.height = targetH;
-              }
-              offscreenCtx.drawImage(videoRef.current, 0, 0, targetW, targetH);
-              globalHandsInstance.send({ image: offscreenCanvas })
-                .catch(e => console.warn('MediaPipe send error:', e))
-                .finally(() => {
-                  isProcessingRef.current = false;
-                  // Start the next frame immediately — no waiting for the next vsync
-                  if (isActiveRef.current) requestAnimationFrame(process);
-                });
-              return; // next RAF already scheduled in finally
-            } else {
-              isProcessingRef.current = false;
-            }
-          } catch (e) {
-            console.warn('MediaPipe frame error:', e);
-            isProcessingRef.current = false;
+        const video = videoRef.current;
+        if (video && video.readyState >= 2) {
+          const nowMs = performance.now();
+          // tasks-vision requires strictly increasing timestamps
+          if (nowMs > lastTimestamp) {
+            lastTimestamp = nowMs;
+            const result = handLandmarkerInstance.detectForVideo(video, nowMs);
+
+            const landmarks = convertLandmarks(result);
+            const cursors   = calculateCursors(landmarks, video);
+            const gestures  = calculateGestures(landmarks, result.handedness);
+
+            window.latestHandData = { landmarks, cursors, gestures };
+
+            const found = landmarks.length > 0;
+            setData(prev => {
+              if (prev.isDetecting === found) return prev;
+              return { ...prev, isDetecting: found };
+            });
           }
         }
 
-        // Video not ready or busy — retry on the next frame
-        if (isActiveRef.current) requestAnimationFrame(process);
+        rafRef.current = requestAnimationFrame(process);
       };
 
-      process();
+      rafRef.current = requestAnimationFrame(process);
     } catch (err) {
       if (isActiveRef.current) {
         setData(prev => ({ ...prev, error: err.message, isLoaded: true }));

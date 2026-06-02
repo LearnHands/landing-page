@@ -8,7 +8,9 @@ import SystemHub from './SystemHub';
 import puceLogo from './assets/puce.png';
 
 // --- CONFIGURACIÓN ---
-const githubLink = "https://github.com/GrupoUnoEmprendimiento/LearnHands";
+const githubLink = "https://github.com/GrupoUnoEmprendimiento/LearnHandsEscritorio";
+const downloadLink = "https://github.com/GrupoUnoEmprendimiento/LearnHandsEscritorio/releases/latest/download/LearnHands.Setup.2.1.0.exe";
+const APP_VERSION = "2.1.0";
 
 // Icono de GitHub Manual
 const GithubIcon = ({ size = 20 }) => (
@@ -60,6 +62,9 @@ const App = () => {
                 <button onClick={() => navigate('/hub')} className="px-10 py-5 bg-white text-black rounded-3xl flex items-center gap-3 hover:bg-purple-500 hover:text-white transition-all shadow-2xl">
                   Comenzar Experiencia
                 </button>
+                <a href={downloadLink} className="px-10 py-5 bg-purple-600 text-white rounded-3xl flex items-center gap-3 hover:bg-purple-500 transition-all shadow-2xl shadow-purple-500/20">
+                  ⬇ Descargar v{APP_VERSION}
+                </a>
                 <a href="#mision" className="px-10 py-5 glass rounded-3xl flex items-center gap-3 border border-white/10">
                   Más Información
                 </a>
@@ -68,7 +73,7 @@ const App = () => {
               {/* Demo Preview Section */}
               <section className="w-full max-w-4xl rounded-[40px] overflow-hidden border border-white/10 glass-dark p-1 relative shadow-2xl shadow-purple-500/10">
                   <div className="bg-white/5 rounded-[38px] overflow-hidden p-12 text-center">
-                      <div className="text-xs font-black text-purple-400 uppercase tracking-widest mb-6 italic">LearnHands AI Engine v2.0</div>
+                      <div className="text-xs font-black text-purple-400 uppercase tracking-widest mb-6 italic">LearnHands AI Engine v{APP_VERSION}</div>
                       <div className="aspect-video bg-black/40 rounded-3xl border border-white/5 flex items-center justify-center relative overflow-hidden group">
                           <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 to-cyan-500/10 animate-pulse" />
                           <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity }} className="text-9xl drop-shadow-[0_0_20px_rgba(168,85,247,0.3)] z-10">🖐️</motion.div>

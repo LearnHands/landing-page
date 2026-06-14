@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart2, TrendingUp, Clock, Activity, Calendar, User,
-  RefreshCw, Award, AlertTriangle, ChevronRight, CheckCircle
+  RefreshCw, Award, AlertTriangle
 } from 'lucide-react';
 
-const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://autocomerciojvc.com';
 
 export default function DashboardSection() {
   const [metrics, setMetrics] = useState([]);
@@ -14,50 +14,6 @@ export default function DashboardSection() {
   const [error, setError] = useState(null);
   const [studentFilter, setStudentFilter] = useState('ALL');
   const [dashboardTab, setDashboardTab] = useState('summary');
-  const [seeding, setSeeding] = useState(false);
-  const [seedSuccess, setSeedSuccess] = useState(false);
-  const [isDemoMode, setIsDemoMode] = useState(false);
-
-  const generateMockData = () => {
-    const studentList = [
-      { username: 'Kathe', total_score: 1850, last_played_at: new Date().toISOString() },
-      { username: 'Carlos', total_score: 1420, last_played_at: new Date().toISOString() },
-      { username: 'Estudiante1', total_score: 980, last_played_at: new Date().toISOString() },
-      { username: 'Estudiante2', total_score: 750, last_played_at: new Date().toISOString() },
-      { username: 'Estudiante3', total_score: 510, last_played_at: new Date().toISOString() }
-    ];
-
-    const mockMetrics = [];
-    const names = ['Kathe', 'Carlos', 'Estudiante1', 'Estudiante2', 'Estudiante3'];
-    const games = ['PIZARRA', 'PIANO', 'PUZZLE', 'COLORES', 'SOLAR', 'BRICKS', 'SILABAS', 'ECO', 'ABACUS'];
-
-    for (let i = 0; i < 50; i++) {
-      const username = names[Math.floor(Math.random() * names.length)];
-      const game_name = games[Math.floor(Math.random() * games.length)];
-      const score = Math.floor(Math.random() * 200) + 50;
-      const duration_seconds = Math.floor(Math.random() * 120) + 30;
-      
-      const daysAgo = Math.floor(Math.random() * 7);
-      const played_at = new Date();
-      played_at.setDate(played_at.getDate() - daysAgo);
-      played_at.setHours(Math.floor(Math.random() * 8) + 8, Math.floor(Math.random() * 60), 0, 0);
-
-      mockMetrics.push({
-        id: i + 1,
-        username,
-        game_name,
-        score,
-        duration_seconds,
-        played_at: played_at.toISOString()
-      });
-    }
-
-    mockMetrics.sort((a, b) => new Date(b.played_at) - new Date(a.played_at));
-
-    setStudents(studentList);
-    setMetrics(mockMetrics);
-    setIsDemoMode(true);
-  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -74,10 +30,11 @@ export default function DashboardSection() {
       if (!resMetrics.ok) throw new Error('Error al obtener el historial de métricas');
       const dataMetrics = await resMetrics.json();
       setMetrics(dataMetrics);
-      setIsDemoMode(false);
     } catch (err) {
-      console.warn('[Dashboard] Fallback to Demo Mode due to server connection error:', err.message);
-      generateMockData();
+      console.error('[Dashboard] Error fetching analytics:', err);
+      setError('No se pudo conectar con el servidor de base de datos de autocomerciojvc.com. Asegúrese de que el backend de producción esté en línea.');
+      setMetrics([]);
+      setStudents([]);
     } finally {
       setLoading(false);
     }
@@ -86,29 +43,6 @@ export default function DashboardSection() {
   useEffect(() => {
     fetchData();
   }, []);
-
-  const handleSeed = async () => {
-    setSeeding(true);
-    setSeedSuccess(false);
-    try {
-      const res = await fetch(`${API_URL}/api/teacher/seed`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force: true })
-      });
-      if (res.ok) {
-        setSeedSuccess(true);
-        setTimeout(() => setSeedSuccess(false), 3000);
-        await fetchData();
-      } else {
-        throw new Error('Fallo al generar los datos semilla');
-      }
-    } catch (err) {
-      alert('Error: ' + err.message);
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   // ── Data Processing ────────────────────────────────────────────────────────
   const filteredMetrics = useMemo(() => {
@@ -193,13 +127,11 @@ export default function DashboardSection() {
               <BarChart2 className="text-purple-400" size={20} />
               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-purple-400">Panel de Control Docente</span>
             </div>
-            <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
-              isDemoMode 
-                ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400' 
-                : 'bg-green-500/10 border border-green-500/20 text-green-400'
-            }`}>
-              {isDemoMode ? 'Modo Demostración (Local)' : 'Base de Datos Sincronizada'}
-            </span>
+            {!error && !loading && metrics.length > 0 && (
+              <span className="px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-green-500/10 border border-green-500/20 text-green-400">
+                Base de Datos Sincronizada
+              </span>
+            )}
           </div>
           <h2 className="text-4xl md:text-5xl font-display font-black tracking-tighter italic uppercase text-gradient">
             Métricas de Aprendizaje
@@ -218,15 +150,6 @@ export default function DashboardSection() {
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
             Actualizar
           </button>
-          
-          <button
-            onClick={handleSeed}
-            disabled={seeding}
-            className="px-5 py-3 bg-purple-600/10 border border-purple-500/20 hover:border-purple-500/40 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all text-purple-400 hover:scale-[1.02]"
-          >
-            {seedSuccess ? <CheckCircle size={12} className="text-emerald-400" /> : <Activity size={12} />}
-            {seeding ? 'Generando...' : seedSuccess ? '¡Completado!' : 'Sembrar Datos Demo'}
-          </button>
         </div>
       </div>
 
@@ -244,12 +167,6 @@ export default function DashboardSection() {
             <h3 className="text-xl font-bold uppercase tracking-tight text-red-200">Error de Conexión</h3>
             <p className="text-white/40 text-sm max-w-md mx-auto leading-relaxed">{error}</p>
           </div>
-          <button
-            onClick={handleSeed}
-            className="mt-2 px-8 py-4 bg-purple-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-purple-500 transition-all shadow-xl shadow-purple-500/20 hover:scale-105 active:scale-[0.97]"
-          >
-            Sembrar base de datos local
-          </button>
         </div>
       ) : metrics.length === 0 ? (
         <div className="glass rounded-[40px] border border-white/10 p-16 text-center flex flex-col items-center gap-8 max-w-2xl mx-auto">
@@ -257,17 +174,8 @@ export default function DashboardSection() {
           <div className="space-y-3">
             <h3 className="text-2xl font-display font-black uppercase italic text-white/90">Sin datos de juego</h3>
             <p className="text-white/40 text-sm max-w-sm mx-auto leading-relaxed">
-              Aún no se han Sincronizado métricas desde la aplicación de escritorio a la base de datos central.
+              Aún no se han sincronizado métricas desde la aplicación de escritorio a la base de datos central.
             </p>
-          </div>
-          <div className="flex flex-col gap-3 w-full max-w-xs">
-            <button
-              onClick={handleSeed}
-              className="px-6 py-4 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-2xl shadow-purple-500/20 hover:scale-105 active:scale-[0.98]"
-            >
-              Generar Datos Ficticios
-            </button>
-            <span className="text-[9px] font-black tracking-wider text-white/20 uppercase">Permite probar el dashboard con un click</span>
           </div>
         </div>
       ) : (

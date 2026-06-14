@@ -143,6 +143,69 @@ app.get('/api/teacher/students', async (req, res) => {
   }
 });
 
+// Endpoint para obtener todas las métricas de la base de datos
+app.get('/api/teacher/metrics', async (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  try {
+    const [rows] = await pool.query('SELECT * FROM metrics ORDER BY played_at DESC');
+    await logAudit('TEACHER_METRICS_VIEW', 'La profesora consultó todas las métricas.', ip);
+    res.json(rows);
+  } catch (error) {
+    console.error('[Teacher API] Error al obtener métricas:', error.message);
+    res.status(500).json({ 
+      error: 'Error interno al consultar las métricas.', 
+      details: error.message 
+    });
+  }
+});
+
+// Endpoint para sembrar datos ficticios en la base de datos para demostración
+app.post('/api/teacher/seed', async (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  try {
+    // Verificar si ya existen registros
+    const [countRows] = await pool.query('SELECT COUNT(*) as cnt FROM metrics');
+    const count = countRows[0].cnt;
+    
+    // Si ya hay más de 5 registros y no se pasa force=true, no sembrar
+    if (count > 5 && !req.body.force) {
+      return res.json({ success: false, message: 'La base de datos ya contiene registros suficientes.', count });
+    }
+
+    const students = ['Kathe', 'Carlos', 'Estudiante1', 'Estudiante2', 'Estudiante3'];
+    const games = ['PIZARRA', 'PIANO', 'PUZZLE', 'COLORES', 'SOLAR', 'BRICKS', 'SILABAS', 'ECO', 'ABACUS'];
+    
+    // Generamos registros para los últimos 7 días
+    const insertQuery = `
+      INSERT INTO metrics (username, game_name, score, duration_seconds, played_at)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+
+    let seededCount = 0;
+    for (let i = 0; i < 35; i++) {
+      const username = students[Math.floor(Math.random() * students.length)];
+      const game_name = games[Math.floor(Math.random() * games.length)];
+      const score = Math.floor(Math.random() * 200) + 50; // 50 to 250
+      const duration_seconds = Math.floor(Math.random() * 120) + 30; // 30 to 150 seconds
+      
+      // Fecha en los últimos 7 días
+      const daysAgo = Math.floor(Math.random() * 7);
+      const played_at = new Date();
+      played_at.setDate(played_at.getDate() - daysAgo);
+      played_at.setHours(Math.floor(Math.random() * 8) + 8, Math.floor(Math.random() * 60), 0, 0); // Horas de clase
+
+      await pool.query(insertQuery, [username, game_name, score, duration_seconds, played_at]);
+      seededCount++;
+    }
+
+    await logAudit('METRICS_SEED', `Se sembraron ${seededCount} registros de métricas de prueba.`, ip);
+    res.json({ success: true, message: `Se generaron ${seededCount} registros de prueba con éxito.`, count: seededCount });
+  } catch (error) {
+    console.error('[Teacher API] Error al sembrar métricas:', error.message);
+    res.status(500).json({ error: 'Error al generar los datos semilla.', details: error.message });
+  }
+});
+
 // Servir archivos estáticos del frontend de Vite en producción
 const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));

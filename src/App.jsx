@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import SystemHub from './SystemHub';
 import puceLogo from './assets/puce.png';
+import DashboardSection from './components/DashboardSection';
 
 const DESKTOP_REPO  = 'https://github.com/GrupoUnoEmprendimiento/LearnHandsEscritorio';
 const RELEASES_URL  = 'https://github.com/GrupoUnoEmprendimiento/LearnHandsEscritorio/releases/latest';
@@ -85,6 +86,7 @@ const App = () => {
                 <a href="#mision"   className="hover:text-white transition-colors">Misión</a>
                 <a href="#modulos"  className="hover:text-white transition-colors">Módulos</a>
                 <a href="#descarga" className="hover:text-white transition-colors">Descargar</a>
+                <a href="#dashboard" className="hover:text-white transition-colors">Métricas</a>
                 <a href={GITHUB_LINK} target="_blank" rel="noreferrer" className="hover:text-white transition-colors flex items-center gap-2 border-l border-white/10 pl-8">
                   <GithubIcon size={14} /> GitHub
                 </a>
@@ -315,8 +317,12 @@ const App = () => {
                     </div>
                   ))}
                 </div>
-
               </div>
+            </section>
+
+            {/* ── Dashboard de Métricas ────────────────────────────────────── */}
+            <section id="dashboard" className="py-24 px-8 max-w-6xl mx-auto scroll-mt-20 border-t border-white/5">
+              <DashboardSection />
             </section>
 
             {/* ── Footer ──────────────────────────────────────────────────── */}

@@ -16,6 +16,48 @@ export default function DashboardSection() {
   const [dashboardTab, setDashboardTab] = useState('summary');
   const [seeding, setSeeding] = useState(false);
   const [seedSuccess, setSeedSuccess] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
+  const generateMockData = () => {
+    const studentList = [
+      { username: 'Kathe', total_score: 1850, last_played_at: new Date().toISOString() },
+      { username: 'Carlos', total_score: 1420, last_played_at: new Date().toISOString() },
+      { username: 'Estudiante1', total_score: 980, last_played_at: new Date().toISOString() },
+      { username: 'Estudiante2', total_score: 750, last_played_at: new Date().toISOString() },
+      { username: 'Estudiante3', total_score: 510, last_played_at: new Date().toISOString() }
+    ];
+
+    const mockMetrics = [];
+    const names = ['Kathe', 'Carlos', 'Estudiante1', 'Estudiante2', 'Estudiante3'];
+    const games = ['PIZARRA', 'PIANO', 'PUZZLE', 'COLORES', 'SOLAR', 'BRICKS', 'SILABAS', 'ECO', 'ABACUS'];
+
+    for (let i = 0; i < 50; i++) {
+      const username = names[Math.floor(Math.random() * names.length)];
+      const game_name = games[Math.floor(Math.random() * games.length)];
+      const score = Math.floor(Math.random() * 200) + 50;
+      const duration_seconds = Math.floor(Math.random() * 120) + 30;
+      
+      const daysAgo = Math.floor(Math.random() * 7);
+      const played_at = new Date();
+      played_at.setDate(played_at.getDate() - daysAgo);
+      played_at.setHours(Math.floor(Math.random() * 8) + 8, Math.floor(Math.random() * 60), 0, 0);
+
+      mockMetrics.push({
+        id: i + 1,
+        username,
+        game_name,
+        score,
+        duration_seconds,
+        played_at: played_at.toISOString()
+      });
+    }
+
+    mockMetrics.sort((a, b) => new Date(b.played_at) - new Date(a.played_at));
+
+    setStudents(studentList);
+    setMetrics(mockMetrics);
+    setIsDemoMode(true);
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -32,9 +74,10 @@ export default function DashboardSection() {
       if (!resMetrics.ok) throw new Error('Error al obtener el historial de métricas');
       const dataMetrics = await resMetrics.json();
       setMetrics(dataMetrics);
+      setIsDemoMode(false);
     } catch (err) {
-      console.error('[Dashboard] Error fetching analytics:', err);
-      setError('No se pudo conectar con el servidor de base de datos. Asegúrate de que el backend esté iniciado.');
+      console.warn('[Dashboard] Fallback to Demo Mode due to server connection error:', err.message);
+      generateMockData();
     } finally {
       setLoading(false);
     }
@@ -145,9 +188,18 @@ export default function DashboardSection() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
         <div>
-          <div className="flex items-center gap-2 mb-3">
-            <BarChart2 className="text-purple-400" size={20} />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-purple-400">Panel de Control Docente</span>
+          <div className="flex flex-wrap items-center gap-3 mb-3">
+            <div className="flex items-center gap-2">
+              <BarChart2 className="text-purple-400" size={20} />
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-purple-400">Panel de Control Docente</span>
+            </div>
+            <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+              isDemoMode 
+                ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400' 
+                : 'bg-green-500/10 border border-green-500/20 text-green-400'
+            }`}>
+              {isDemoMode ? 'Modo Demostración (Local)' : 'Base de Datos Sincronizada'}
+            </span>
           </div>
           <h2 className="text-4xl md:text-5xl font-display font-black tracking-tighter italic uppercase text-gradient">
             Métricas de Aprendizaje

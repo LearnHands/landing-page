@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const dbConfig = {
+const primaryConfig = {
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '3306', 10),
   user: process.env.DB_USER || 'g01',
@@ -14,22 +14,50 @@ const dbConfig = {
   queueLimit: 0
 };
 
-console.log(`[Database] Intentando conectar a ${dbConfig.host}:${dbConfig.port} / BD: ${dbConfig.database} como usuario: ${dbConfig.user}`);
+const fallbackConfig = {
+  host: process.env.DB_FALLBACK_HOST || 'localhost',
+  port: parseInt(process.env.DB_FALLBACK_PORT || '3306', 10),
+  user: process.env.DB_FALLBACK_USER || 'root',
+  password: process.env.DB_FALLBACK_PASSWORD || '',
+  database: process.env.DB_FALLBACK_NAME || 'auto_comercio_jvc',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+};
 
-let pool;
-
-try {
-  pool = mysql.createPool(dbConfig);
-} catch (error) {
-  console.error('[Database] Fallo al crear el pool de conexiones:', error);
-}
+let currentPool = null;
+let activeConfigName = 'grupo01';
 
 // Función para inicializar las tablas de base de datos si no existen
 export async function initializeDatabase() {
+  if (!currentPool) {
+    try {
+      console.log(`[Database] Intentando conectar a la base de datos principal (${primaryConfig.database})...`);
+      const testPool = mysql.createPool(primaryConfig);
+      await testPool.query('SELECT 1');
+      currentPool = testPool;
+      activeConfigName = 'grupo01';
+      console.log(`[Database] Conectado exitosamente a la base de datos principal: ${primaryConfig.database}`);
+    } catch (err) {
+      console.warn(`[Database] No se pudo conectar a la base de datos principal: ${err.message}. Intentando fallback...`);
+      try {
+        const testPool = mysql.createPool(fallbackConfig);
+        await testPool.query('SELECT 1');
+        currentPool = testPool;
+        activeConfigName = 'autocomerciojvc';
+        console.log(`[Database] Conectado exitosamente a la base de datos secundaria: ${fallbackConfig.database}`);
+      } catch (fallbackErr) {
+        console.error(`[Database] Error crítico: Ambas conexiones fallaron. Fallback: ${fallbackErr.message}`);
+        currentPool = mysql.createPool(primaryConfig);
+        activeConfigName = 'grupo01';
+      }
+    }
+  }
+
   let connection;
   try {
-    connection = await pool.getConnection();
-    console.log('[Database] Conexión establecida con MySQL. Inicializando tablas...');
+    connection = await currentPool.getConnection();
+    console.log(`[Database] [${activeConfigName}] Conexión establecida con MySQL. Inicializando tablas...`);
 
     // 1. Tabla de métricas
     await connection.query(`
@@ -74,7 +102,8 @@ export async function initializeDatabase() {
 // Helper para insertar registros de auditoría de forma rápida
 export async function logAudit(action, details, ipAddress = '127.0.0.1') {
   try {
-    await pool.query(
+    const activePool = currentPool || mysql.createPool(primaryConfig);
+    await activePool.query(
       'INSERT INTO audit_logs (action, details, ip_address) VALUES (?, ?, ?)',
       [action, details, ipAddress]
     );
@@ -83,4 +112,18 @@ export async function logAudit(action, details, ipAddress = '127.0.0.1') {
   }
 }
 
-export default pool;
+// Proxy dinámico para exportar el pool
+const poolProxy = new Proxy({}, {
+  get(target, prop) {
+    if (!currentPool) {
+      currentPool = mysql.createPool(primaryConfig);
+    }
+    const val = currentPool[prop];
+    if (typeof val === 'function') {
+      return val.bind(currentPool);
+    }
+    return val;
+  }
+});
+
+export default poolProxy;

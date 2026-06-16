@@ -5,7 +5,22 @@ import {
   RefreshCw, Award, AlertTriangle
 } from 'lucide-react';
 
-const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://autocomerciojvc.com';
+const PRIMARY_API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3001' : window.location.origin;
+const FALLBACK_API_URL = 'https://autocomerciojvc.com';
+
+const fetchWithFallback = async (endpoint) => {
+  try {
+    const res = await fetch(`${PRIMARY_API_URL}${endpoint}`);
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[API Fallback] Error en API principal (${PRIMARY_API_URL}${endpoint}):`, err.message);
+    console.log(`[API Fallback] Intentando con API de respaldo (${FALLBACK_API_URL}${endpoint})...`);
+    const res = await fetch(`${FALLBACK_API_URL}${endpoint}`);
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    return await res.json();
+  }
+};
 
 export default function DashboardSection() {
   const [metrics, setMetrics] = useState([]);
@@ -19,20 +34,16 @@ export default function DashboardSection() {
     setLoading(true);
     setError(null);
     try {
-      // Fetch list of students
-      const resStudents = await fetch(`${API_URL}/api/teacher/students`);
-      if (!resStudents.ok) throw new Error('Error al obtener lista de alumnos');
-      const dataStudents = await resStudents.json();
+      // Fetch list of students using fallback
+      const dataStudents = await fetchWithFallback('/api/teacher/students');
       setStudents(dataStudents);
 
-      // Fetch all metrics
-      const resMetrics = await fetch(`${API_URL}/api/teacher/metrics`);
-      if (!resMetrics.ok) throw new Error('Error al obtener el historial de métricas');
-      const dataMetrics = await resMetrics.json();
+      // Fetch all metrics using fallback
+      const dataMetrics = await fetchWithFallback('/api/teacher/metrics');
       setMetrics(dataMetrics);
     } catch (err) {
       console.error('[Dashboard] Error fetching analytics:', err);
-      setError('No se pudo conectar con el servidor de base de datos de autocomerciojvc.com. Asegúrese de que el backend de producción esté en línea.');
+      setError('No se pudo conectar con el servidor de base de datos local ni de autocomerciojvc.com.');
       setMetrics([]);
       setStudents([]);
     } finally {

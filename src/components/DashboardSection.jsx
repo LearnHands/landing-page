@@ -68,19 +68,19 @@ export default function DashboardSection() {
   const totalSessions = filteredMetrics.length;
   
   const totalTimeMins = useMemo(() => {
-    const sec = filteredMetrics.reduce((sum, m) => sum + (m.duration_seconds || 0), 0);
+    const sec = filteredMetrics.reduce((sum, m) => sum + Number(m.duration_seconds || 0), 0);
     return Math.round(sec / 60);
   }, [filteredMetrics]);
 
   const avgScore = useMemo(() => {
     if (filteredMetrics.length === 0) return 0;
-    const sum = filteredMetrics.reduce((sum, m) => sum + (m.score || 0), 0);
+    const sum = filteredMetrics.reduce((sum, m) => sum + Number(m.score || 0), 0);
     return Math.round(sum / filteredMetrics.length);
   }, [filteredMetrics]);
 
   const maxScore = useMemo(() => {
     if (filteredMetrics.length === 0) return 0;
-    return Math.max(...filteredMetrics.map(m => m.score || 0));
+    return Math.max(...filteredMetrics.map(m => Number(m.score || 0)));
   }, [filteredMetrics]);
 
   const gameScores = useMemo(() => {
@@ -88,7 +88,7 @@ export default function DashboardSection() {
     filteredMetrics.forEach(m => {
       const name = m.game_name.toUpperCase();
       if (!groups[name]) groups[name] = { sum: 0, count: 0 };
-      groups[name].sum += m.score;
+      groups[name].sum += Number(m.score || 0);
       groups[name].count += 1;
     });
     return Object.keys(groups).map(game => ({
@@ -122,7 +122,7 @@ export default function DashboardSection() {
       const mDateStr = new Date(m.played_at).toISOString().split('T')[0];
       const found = days.find(d => d.key === mDateStr);
       if (found) {
-        found.score += m.score;
+        found.score += Number(m.score || 0);
       }
     });
     return days;

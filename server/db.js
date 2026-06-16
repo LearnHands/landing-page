@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
@@ -59,9 +60,34 @@ export async function initializeDatabase() {
     connection = await currentPool.getConnection();
     console.log(`[Database] [${activeConfigName}] Conexión establecida con MySQL. Inicializando tablas...`);
 
-    // 1. Tabla de métricas
+    // 1. Tabla de usuarios (learnhands_users)
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS metrics (
+      CREATE TABLE IF NOT EXISTS learnhands_users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(100) NOT NULL UNIQUE,
+        role VARCHAR(20) DEFAULT 'student',
+        password_hash VARCHAR(255) NULL,
+        last_login_at TIMESTAMP NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    console.log('[Database] Tabla "learnhands_users" verificada/creada.');
+
+    // Asegurar que la profesora exista
+    const [userRows] = await connection.query('SELECT * FROM learnhands_users WHERE username = ?', ['KathePastaz']);
+    if (userRows.length === 0) {
+      const passwordHash = bcrypt.hashSync('secreto123', 10);
+      await connection.query(`
+        INSERT INTO learnhands_users (username, role, password_hash)
+        VALUES (?, ?, ?)
+      `, ['KathePastaz', 'teacher', passwordHash]);
+      console.log('[Database] Profesora default "KathePastaz" insertada con contraseña "secreto123".');
+    }
+
+    // 2. Tabla de métricas (learnhands_metrics)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS learnhands_metrics (
         id INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(100) NOT NULL,
         game_name VARCHAR(50) NOT NULL,
@@ -71,23 +97,38 @@ export async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
-    console.log('[Database] Tabla "metrics" verificada/creada.');
+    console.log('[Database] Tabla "learnhands_metrics" verificada/creada.');
 
-    // 2. Tabla de logs de auditoría
+    // 3. Tabla de métricas UX (learnhands_ux_metrics)
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS audit_logs (
+      CREATE TABLE IF NOT EXISTS learnhands_ux_metrics (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        action VARCHAR(100) NOT NULL,
-        details TEXT,
-        ip_address VARCHAR(45),
+        username VARCHAR(100) NOT NULL,
+        metric_type VARCHAR(50) NOT NULL,
+        game_name VARCHAR(50) NOT NULL,
+        metric_value DOUBLE NOT NULL,
+        details TEXT NULL,
+        played_at TIMESTAMP NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
-    console.log('[Database] Tabla "audit_logs" verificada/creada.');
+    console.log('[Database] Tabla "learnhands_ux_metrics" verificada/creada.');
+
+    // 4. Tabla de logs de auditoría (learnhands_audit_logs)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS learnhands_audit_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        action VARCHAR(100) NOT NULL,
+        details TEXT NULL,
+        ip_address VARCHAR(45) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    console.log('[Database] Tabla "learnhands_audit_logs" verificada/creada.');
 
     // Registrar log de inicio
     await connection.query(
-      'INSERT INTO audit_logs (action, details, ip_address) VALUES (?, ?, ?)',
+      'INSERT INTO learnhands_audit_logs (action, details, ip_address) VALUES (?, ?, ?)',
       ['SYSTEM_STARTUP', 'El sistema backend se ha iniciado y verificado las tablas de base de datos con éxito.', '127.0.0.1']
     );
 
@@ -104,7 +145,7 @@ export async function logAudit(action, details, ipAddress = '127.0.0.1') {
   try {
     const activePool = currentPool || mysql.createPool(primaryConfig);
     await activePool.query(
-      'INSERT INTO audit_logs (action, details, ip_address) VALUES (?, ?, ?)',
+      'INSERT INTO learnhands_audit_logs (action, details, ip_address) VALUES (?, ?, ?)',
       [action, details, ipAddress]
     );
   } catch (err) {

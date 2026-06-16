@@ -36,10 +36,16 @@ export default function DashboardSection() {
     try {
       // Fetch list of students using fallback
       const dataStudents = await fetchWithFallback('/api/teacher/students');
+      console.log('--- RAW STUDENTS ARRAY START ---');
+      console.log(JSON.stringify(dataStudents, null, 2));
+      console.log('--- RAW STUDENTS ARRAY END ---');
       setStudents(dataStudents);
 
       // Fetch all metrics using fallback
       const dataMetrics = await fetchWithFallback('/api/teacher/metrics');
+      console.log('--- RAW METRICS ARRAY START ---');
+      console.log(JSON.stringify(dataMetrics, null, 2));
+      console.log('--- RAW METRICS ARRAY END ---');
       setMetrics(dataMetrics);
     } catch (err) {
       console.error('[Dashboard] Error fetching analytics:', err);

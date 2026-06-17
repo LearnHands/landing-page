@@ -105,7 +105,7 @@ const App = () => {
               </motion.div>
 
               <h1 className="text-6xl md:text-8xl font-display leading-[0.95] mb-8 font-black tracking-tighter italic text-gradient uppercase">
-                Aprendizaje sin Manos
+                Aprendizaje sin Mouse
               </h1>
               <p className="max-w-2xl text-lg text-white/40 mb-12 italic">
                 Controla todo con tus manos. Inteligencia artificial para detectar gestos en tiempo real, sin teclado ni ratón.

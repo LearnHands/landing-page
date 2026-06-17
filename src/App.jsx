@@ -10,10 +10,10 @@ import SystemHub from './SystemHub';
 import puceLogo from './assets/puce.png';
 import DashboardSection from './components/DashboardSection';
 
-const DESKTOP_REPO  = 'https://github.com/GrupoUnoEmprendimiento/LearnHandsEscritorio';
-const RELEASES_URL  = 'https://github.com/GrupoUnoEmprendimiento/LearnHandsEscritorio/releases/latest';
-const GITHUB_LINK   = 'https://github.com/GrupoUnoEmprendimiento/LearnHands';
-const APP_VERSION   = '2.1.0';
+const DESKTOP_REPO = 'https://github.com/GrupoUnoEmprendimiento/LearnHandsEscritorio';
+const RELEASES_URL = 'https://github.com/GrupoUnoEmprendimiento/LearnHandsEscritorio/releases/latest';
+const GITHUB_LINK = 'https://github.com/GrupoUnoEmprendimiento/LearnHands';
+const APP_VERSION = '2.1.0';
 
 const GithubIcon = ({ size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -24,35 +24,35 @@ const GithubIcon = ({ size = 20 }) => (
 
 // ── All 10 desktop modules ──────────────────────────────────────────────────
 const MODULES = [
-  { icon: <Palette />,   color: 'purple',  title: 'Pizarra Digital',    desc: 'Dibuja y pinta con el dedo índice en el aire sobre un lienzo digital de resolución completa.' },
-  { icon: <Music />,     color: 'cyan',    title: 'Piano Gestual',      desc: 'Piano de 2 octavas con notas sostenidas: detecta cada yema de dedo individualmente sobre las teclas.' },
-  { icon: <Puzzle />,    color: 'orange',  title: 'Rompecabezas',       desc: 'Arrastra piezas con pinza a su posición exacta. Dificultad progresiva de 2×2 a 3×3.' },
-  { icon: <div className="flex gap-1 items-end"><Circle size={22}/><Square size={16}/></div>, color: 'emerald', title: 'Colores y Formas', desc: 'Clasifica figuras por color y forma, desarrollando percepción visual y coordinación.' },
-  { icon: <Compass />,   color: 'cyan',    title: 'Constelaciones',     desc: 'Conecta estrellas con el dedo para trazar constelaciones reales del cielo nocturno.' },
-  { icon: <Gamepad2 />,  color: 'orange',  title: 'Balls Crush',        desc: 'Breakout gestual con power-ups, múltiples bolas y niveles de dificultad creciente.' },
-  { icon: <BookOpen />,  color: 'purple',  title: 'Sílabas',            desc: 'Atrapa sílabas en el aire y arrástralas a su posición. 12 palabras ordenadas de 2 a 3 sílabas.' },
-  { icon: <Shield />,    color: 'emerald', title: 'Eco-Guardián',       desc: 'Clasifica residuos en orgánico, reciclable y peligroso. Conciencia ambiental gamificada.' },
-  { icon: <Award />,     color: 'orange',  title: 'Ábaco Matemático',   desc: 'Selecciona burbujas numéricas con pinza para alcanzar una suma objetivo. 9 niveles de dificultad.' },
+  { icon: <Palette />, color: 'purple', title: 'Pizarra Digital', desc: 'Dibuja y pinta con el dedo índice en el aire sobre un lienzo digital de resolución completa.' },
+  { icon: <Music />, color: 'cyan', title: 'Piano Gestual', desc: 'Piano de 2 octavas con notas sostenidas: detecta cada yema de dedo individualmente sobre las teclas.' },
+  { icon: <Puzzle />, color: 'orange', title: 'Rompecabezas', desc: 'Arrastra piezas con pinza a su posición exacta. Dificultad progresiva de 2×2 a 3×3.' },
+  { icon: <div className="flex gap-1 items-end"><Circle size={22} /><Square size={16} /></div>, color: 'emerald', title: 'Colores y Formas', desc: 'Clasifica figuras por color y forma, desarrollando percepción visual y coordinación.' },
+  { icon: <Compass />, color: 'cyan', title: 'Constelaciones', desc: 'Conecta estrellas con el dedo para trazar constelaciones reales del cielo nocturno.' },
+  { icon: <Gamepad2 />, color: 'orange', title: 'Balls Crush', desc: 'Breakout gestual con power-ups, múltiples bolas y niveles de dificultad creciente.' },
+  { icon: <BookOpen />, color: 'purple', title: 'Sílabas', desc: 'Atrapa sílabas en el aire y arrástralas a su posición. 12 palabras ordenadas de 2 a 3 sílabas.' },
+  { icon: <Shield />, color: 'emerald', title: 'Eco-Guardián', desc: 'Clasifica residuos en orgánico, reciclable y peligroso. Conciencia ambiental gamificada.' },
+  { icon: <Award />, color: 'orange', title: 'Ábaco Matemático', desc: 'Selecciona burbujas numéricas con pinza para alcanzar una suma objetivo. 9 niveles de dificultad.' },
   { icon: <span className="text-2xl">🪐</span>, color: 'cyan', title: 'Sistema Solar', desc: 'Explora los 8 planetas con zoom y paneo por gestos. Tarjetas educativas interactivas para cada planeta.' },
 ];
 
 const COLOR_MAP = {
-  purple:  { bg: 'bg-purple-500/10',  border: 'border-purple-500/20',  text: 'text-purple-400',  glow: 'group-hover:shadow-purple-500/20'  },
-  cyan:    { bg: 'bg-cyan-500/10',    border: 'border-cyan-500/20',    text: 'text-cyan-400',    glow: 'group-hover:shadow-cyan-500/20'    },
-  orange:  { bg: 'bg-orange-500/10',  border: 'border-orange-500/20',  text: 'text-orange-400',  glow: 'group-hover:shadow-orange-500/20'  },
+  purple: { bg: 'bg-purple-500/10', border: 'border-purple-500/20', text: 'text-purple-400', glow: 'group-hover:shadow-purple-500/20' },
+  cyan: { bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', text: 'text-cyan-400', glow: 'group-hover:shadow-cyan-500/20' },
+  orange: { bg: 'bg-orange-500/10', border: 'border-orange-500/20', text: 'text-orange-400', glow: 'group-hover:shadow-orange-500/20' },
   emerald: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', text: 'text-emerald-400', glow: 'group-hover:shadow-emerald-500/20' },
 };
 
 // ── Feature comparison rows ─────────────────────────────────────────────────
 const COMPARISON = [
-  { label: 'Módulos de aprendizaje',   demo: '3 básicos',    full: '10 módulos completos', highlight: true },
-  { label: 'Detección de manos (IA)',  demo: 'Estándar',     full: 'GPU acelerada (30fps)',  highlight: false },
-  { label: 'Dificultad progresiva',    demo: 'No',           full: 'Sí, por módulo',         highlight: false },
-  { label: 'Sistema Solar 3D',         demo: 'No',           full: 'Sí, interactivo',        highlight: true },
-  { label: 'Funciona sin internet',    demo: 'No',           full: 'Sí (offline)',           highlight: false },
-  { label: 'Sistema de puntos',        demo: 'Básico',       full: 'Completo + niveles',     highlight: false },
-  { label: 'Sonido sintetizado',       demo: 'Parcial',      full: 'Todas las notas sostenidas', highlight: false },
-  { label: 'Actualizaciones',          demo: 'Manual',       full: 'Auto desde GitHub',      highlight: false },
+  { label: 'Módulos de aprendizaje', demo: '3 básicos', full: '10 módulos completos', highlight: true },
+  { label: 'Detección de manos (IA)', demo: 'Estándar', full: 'GPU acelerada (30fps)', highlight: false },
+  { label: 'Dificultad progresiva', demo: 'No', full: 'Sí, por módulo', highlight: false },
+  { label: 'Sistema Solar 3D', demo: 'No', full: 'Sí, interactivo', highlight: true },
+  { label: 'Funciona sin internet', demo: 'No', full: 'Sí (offline)', highlight: false },
+  { label: 'Sistema de puntos', demo: 'Básico', full: 'Completo + niveles', highlight: false },
+  { label: 'Sonido sintetizado', demo: 'Parcial', full: 'Todas las notas sostenidas', highlight: false },
+  { label: 'Actualizaciones', demo: 'Manual', full: 'Auto desde GitHub', highlight: false },
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -83,8 +83,8 @@ const App = () => {
                 </div>
               </div>
               <div className="hidden md:flex gap-8 text-xs font-black uppercase tracking-widest text-white/40 items-center">
-                <a href="#mision"   className="hover:text-white transition-colors">Misión</a>
-                <a href="#modulos"  className="hover:text-white transition-colors">Módulos</a>
+                <a href="#mision" className="hover:text-white transition-colors">Misión</a>
+                <a href="#modulos" className="hover:text-white transition-colors">Módulos</a>
                 <a href="#descarga" className="hover:text-white transition-colors">Descargar</a>
                 <a href="#dashboard" className="hover:text-white transition-colors">Métricas</a>
                 <a href={GITHUB_LINK} target="_blank" rel="noreferrer" className="hover:text-white transition-colors flex items-center gap-2 border-l border-white/10 pl-8">
@@ -98,14 +98,14 @@ const App = () => {
 
             {/* ── Hero ────────────────────────────────────────────────────── */}
             <header className="relative pt-48 pb-24 px-8 flex flex-col items-center text-center">
-              <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.1 }}
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                 className="mb-6 px-5 py-1.5 glass rounded-full border border-white/10 text-[9px] font-black uppercase tracking-[0.35em] text-purple-400 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse" />
                 Fe y Alegría Ecuador · Plataforma Educativa
               </motion.div>
 
               <h1 className="text-6xl md:text-8xl font-display leading-[0.95] mb-8 font-black tracking-tighter italic text-gradient uppercase">
-                Aprendizaje sin Mouse
+                Aprendizaje sin Manos
               </h1>
               <p className="max-w-2xl text-lg text-white/40 mb-12 italic">
                 Controla todo con tus manos. Inteligencia artificial para detectar gestos en tiempo real, sin teclado ni ratón.
@@ -126,7 +126,7 @@ const App = () => {
                   <div className="text-xs font-black text-purple-400 uppercase tracking-widest mb-6 italic">LearnHands AI Engine v{APP_VERSION}</div>
                   <div className="aspect-video bg-black/40 rounded-3xl border border-white/5 flex items-center justify-center relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 to-cyan-500/10 animate-pulse" />
-                    <motion.div animate={{ y:[0,-10,0] }} transition={{ duration:4, repeat:Infinity }} className="text-9xl drop-shadow-[0_0_20px_rgba(168,85,247,0.3)] z-10">🖐️</motion.div>
+                    <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 4, repeat: Infinity }} className="text-9xl drop-shadow-[0_0_20px_rgba(168,85,247,0.3)] z-10">🖐️</motion.div>
                     <button onClick={() => navigate('/hub')} className="absolute bottom-10 px-8 py-3 bg-purple-600 rounded-xl font-bold text-xs uppercase tracking-widest z-10 hover:scale-105 transition-all">
                       Abrir Demo Web →
                     </button>
@@ -147,9 +147,9 @@ const App = () => {
                 </div>
                 <div className="glass p-8 rounded-[40px] border border-white/10 space-y-4">
                   <h3 className="text-xs font-black uppercase tracking-widest text-purple-400">Objetivos Clave</h3>
-                  <ObjectiveItem icon={<Heart className="text-purple-500"/>}   title="Inclusión Digital" />
-                  <ObjectiveItem icon={<Zap className="text-cyan-500"/>}       title="Zero Mouse / Zero Keyboard" />
-                  <ObjectiveItem icon={<Sparkles className="text-orange-500"/>} title="Aprendizaje Lúdico" />
+                  <ObjectiveItem icon={<Heart className="text-purple-500" />} title="Inclusión Digital" />
+                  <ObjectiveItem icon={<Zap className="text-cyan-500" />} title="Zero Mouse / Zero Keyboard" />
+                  <ObjectiveItem icon={<Sparkles className="text-orange-500" />} title="Aprendizaje Lúdico" />
                 </div>
               </div>
             </section>
@@ -163,9 +163,9 @@ const App = () => {
                 10 módulos disponibles en la versión escritorio
               </p>
               <div className="grid md:grid-cols-3 gap-12 mb-12">
-                <FeatureCard icon={<Palette className="text-purple-400"/>}  title="Pizarra Interactiva"   desc="Sistema de dibujo por gestos. Usa el índice para crear trazos sobre un lienzo digital." />
-                <FeatureCard icon={<Music className="text-cyan-400"/>}      title="Piano Gestual"          desc="Piano virtual con notas sostenidas. Detecta cada yema de dedo individualmente sobre las teclas." />
-                <FeatureCard icon={<Puzzle className="text-orange-400"/>}   title="Rompecabezas Lógico"   desc="Arrastra piezas con pinza hasta ensamblar la imagen. Dificultad progresiva 2×2 a 3×3." />
+                <FeatureCard icon={<Palette className="text-purple-400" />} title="Pizarra Interactiva" desc="Sistema de dibujo por gestos. Usa el índice para crear trazos sobre un lienzo digital." />
+                <FeatureCard icon={<Music className="text-cyan-400" />} title="Piano Gestual" desc="Piano virtual con notas sostenidas. Detecta cada yema de dedo individualmente sobre las teclas." />
+                <FeatureCard icon={<Puzzle className="text-orange-400" />} title="Rompecabezas Lógico" desc="Arrastra piezas con pinza hasta ensamblar la imagen. Dificultad progresiva 2×2 a 3×3." />
               </div>
               <div className="flex justify-center">
                 <a href="#descarga" className="px-8 py-3 glass rounded-full border border-white/10 text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-white hover:border-white/30 transition-all flex items-center gap-2">
@@ -239,7 +239,7 @@ const App = () => {
                     <div className="absolute top-4 right-4 px-3 py-1 bg-purple-500/20 border border-purple-500/30 rounded-full text-[8px] font-black uppercase tracking-widest text-purple-400">
                       Recomendado
                     </div>
-                    <div className="px-8 py-5 border-b border-purple-500/20 flex items-center gap-3" style={{ background:'rgba(139,92,246,0.06)' }}>
+                    <div className="px-8 py-5 border-b border-purple-500/20 flex items-center gap-3" style={{ background: 'rgba(139,92,246,0.06)' }}>
                       <div className="w-8 h-8 bg-purple-500/10 rounded-xl flex items-center justify-center">
                         <WifiOff size={16} className="text-purple-400" />
                       </div>
@@ -274,7 +274,7 @@ const App = () => {
                   {MODULES.map((mod, i) => {
                     const c = COLOR_MAP[mod.color];
                     return (
-                      <motion.div key={i} whileHover={{ y:-6, scale:1.02 }} transition={{ type:'spring', stiffness:300, damping:20 }}
+                      <motion.div key={i} whileHover={{ y: -6, scale: 1.02 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                         className={`group p-5 rounded-[28px] border ${c.border} ${c.bg} flex flex-col gap-3 shadow-xl hover:shadow-2xl ${c.glow} transition-all`}>
                         <div className={`w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center ${c.text} border ${c.border}`}>
                           {mod.icon}
@@ -291,9 +291,9 @@ const App = () => {
                 {/* ── Requirements ─────────────────────────────────────── */}
                 <div className="mt-16 glass rounded-[36px] border border-white/10 p-8 grid sm:grid-cols-3 gap-8 text-center">
                   {[
-                    { icon: <Monitor size={22} className="text-purple-400"/>, title: 'Sistema Operativo', detail: 'Windows 10 / 11\n64 bits' },
-                    { icon: <Cpu size={22} className="text-cyan-400"/>,       title: 'Hardware',          detail: 'CPU i3+ / Ryzen 3+\nWebcam integrada o USB' },
-                    { icon: <WifiOff size={22} className="text-orange-400"/>, title: 'Conexión',          detail: 'Sin internet necesario\nIA local en el dispositivo' },
+                    { icon: <Monitor size={22} className="text-purple-400" />, title: 'Sistema Operativo', detail: 'Windows 10 / 11\n64 bits' },
+                    { icon: <Cpu size={22} className="text-cyan-400" />, title: 'Hardware', detail: 'CPU i3+ / Ryzen 3+\nWebcam integrada o USB' },
+                    { icon: <WifiOff size={22} className="text-orange-400" />, title: 'Conexión', detail: 'Sin internet necesario\nIA local en el dispositivo' },
                   ].map(req => (
                     <div key={req.title} className="flex flex-col items-center gap-3">
                       <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center">{req.icon}</div>
@@ -306,9 +306,9 @@ const App = () => {
                 {/* ── Install steps ─────────────────────────────────────── */}
                 <div className="mt-12 flex flex-col sm:flex-row gap-4 items-stretch justify-center">
                   {[
-                    { n: '01', t: 'Descargar',  d: 'Descarga el instalador .exe desde el botón superior' },
-                    { n: '02', t: 'Instalar',   d: 'Ejecuta el instalador y sigue los pasos del asistente' },
-                    { n: '03', t: 'Conectar',   d: 'Conecta tu webcam y abre LearnHands para empezar' },
+                    { n: '01', t: 'Descargar', d: 'Descarga el instalador .exe desde el botón superior' },
+                    { n: '02', t: 'Instalar', d: 'Ejecuta el instalador y sigue los pasos del asistente' },
+                    { n: '03', t: 'Conectar', d: 'Conecta tu webcam y abre LearnHands para empezar' },
                   ].map(step => (
                     <div key={step.n} className="flex-1 glass rounded-[28px] border border-white/10 p-6 flex flex-col gap-3 text-center">
                       <span className="text-4xl font-display font-black italic text-gradient opacity-60">{step.n}</span>
@@ -361,7 +361,7 @@ const ObjectiveItem = ({ icon, title }) => (
 );
 
 const FeatureCard = ({ icon, title, desc }) => (
-  <motion.div whileHover={{ y:-15 }} className="p-12 rounded-[50px] glass hover:bg-white/5 border border-white/10 transition-all flex flex-col gap-8 items-center text-center shadow-2xl">
+  <motion.div whileHover={{ y: -15 }} className="p-12 rounded-[50px] glass hover:bg-white/5 border border-white/10 transition-all flex flex-col gap-8 items-center text-center shadow-2xl">
     <div className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center text-4xl shadow-inner animate-float">{icon}</div>
     <div className="space-y-4">
       <h3 className="text-xs font-black uppercase tracking-[0.4em] italic text-white/90 underline decoration-purple-500/40 decoration-4 underline-offset-8">{title}</h3>

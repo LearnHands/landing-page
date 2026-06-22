@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart2, TrendingUp, Clock, Activity, Calendar, User,
-  RefreshCw, Award, AlertTriangle
+  RefreshCw, Award, AlertTriangle, Copy, CheckCircle, Users, KeyRound, RotateCcw
 } from 'lucide-react';
 
 const PRIMARY_API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3001' : window.location.origin;
@@ -29,6 +29,9 @@ export default function DashboardSection() {
   const [error, setError] = useState(null);
   const [studentFilter, setStudentFilter] = useState('ALL');
   const [dashboardTab, setDashboardTab] = useState('summary');
+  const [classInfo, setClassInfo] = useState(null);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [regenLoading, setRegenLoading] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -36,17 +39,19 @@ export default function DashboardSection() {
     try {
       // Fetch list of students using fallback
       const dataStudents = await fetchWithFallback('/api/teacher/students');
-      console.log('--- RAW STUDENTS ARRAY START ---');
-      console.log(JSON.stringify(dataStudents, null, 2));
-      console.log('--- RAW STUDENTS ARRAY END ---');
       setStudents(dataStudents);
 
       // Fetch all metrics using fallback
       const dataMetrics = await fetchWithFallback('/api/teacher/metrics');
-      console.log('--- RAW METRICS ARRAY START ---');
-      console.log(JSON.stringify(dataMetrics, null, 2));
-      console.log('--- RAW METRICS ARRAY END ---');
       setMetrics(dataMetrics);
+
+      // Fetch class info
+      try {
+        const dataClass = await fetchWithFallback('/api/teacher/class-info');
+        setClassInfo(dataClass);
+      } catch (classErr) {
+        console.warn('[Dashboard] No se pudo cargar info de clase:', classErr.message);
+      }
     } catch (err) {
       console.error('[Dashboard] Error fetching analytics:', err);
       setError('No se pudo conectar con el servidor de base de datos local ni de autocomerciojvc.com.');
@@ -54,6 +59,45 @@ export default function DashboardSection() {
       setStudents([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCopyCode = async () => {
+    if (!classInfo?.class_code) return;
+    try {
+      await navigator.clipboard.writeText(classInfo.class_code);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2500);
+    } catch {
+      // fallback
+      const el = document.createElement('textarea');
+      el.value = classInfo.class_code;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2500);
+    }
+  };
+
+  const handleRegenCode = async () => {
+    if (!window.confirm('¿Regenerar el código de clase? Los alumnos que ya se registraron conservan su asignación, pero el código anterior ya no funcionará para nuevos registros.')) return;
+    setRegenLoading(true);
+    try {
+      const res = await fetch(`${PRIMARY_API_URL}/api/teacher/regenerate-class-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teacher: 'KathePastaz' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setClassInfo(prev => ({ ...prev, class_code: data.class_code }));
+      }
+    } catch (err) {
+      console.error('[Dashboard] Error regenerando código:', err);
+    } finally {
+      setRegenLoading(false);
     }
   };
 
@@ -137,7 +181,7 @@ export default function DashboardSection() {
   return (
     <div className="w-full relative z-10">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
         <div>
           <div className="flex flex-wrap items-center gap-3 mb-3">
             <div className="flex items-center gap-2">
@@ -157,7 +201,6 @@ export default function DashboardSection() {
             Monitoreo en tiempo real del desempeño de los estudiantes en la plataforma de movimiento natural LearnHands.
           </p>
         </div>
-
         <div className="flex flex-wrap gap-3">
           <button
             onClick={fetchData}
@@ -169,6 +212,45 @@ export default function DashboardSection() {
           </button>
         </div>
       </div>
+
+      {/* Class Code Card */}
+      {classInfo && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass p-5 rounded-3xl border border-purple-500/20 bg-gradient-to-r from-purple-500/5 to-indigo-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-5 mb-8"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 flex-shrink-0">
+              <KeyRound size={22} />
+            </div>
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-purple-400/70 mb-1">Código de Clase · {classInfo.class_name}</p>
+              <div className="flex items-center gap-3">
+                <span className="text-3xl font-display font-black tracking-[0.3em] text-white italic">{classInfo.class_code}</span>
+                <button
+                  onClick={handleCopyCode}
+                  title="Copiar código"
+                  className="p-2 rounded-xl bg-white/5 border border-white/10 hover:border-purple-500/50 hover:bg-purple-500/10 transition-all active:scale-95"
+                >
+                  {codeCopied ? <CheckCircle size={15} className="text-green-400" /> : <Copy size={15} className="text-white/50" />}
+                </button>
+              </div>
+              <p className="text-[9px] font-bold text-white/30 mt-1">
+                <Users size={10} className="inline mr-1" />
+                {classInfo.student_count} {classInfo.student_count === 1 ? 'alumno registrado' : 'alumnos registrados'} con este código
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleRegenCode}
+            disabled={regenLoading}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-white/10 bg-white/5 hover:border-red-500/30 hover:bg-red-500/5 text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-red-400 transition-all disabled:opacity-50"
+          >
+            <RotateCcw size={12} className={regenLoading ? 'animate-spin' : ''} /> Regenerar código
+          </button>
+        </motion.div>
+      )}
 
       {loading ? (
         <div className="h-96 glass rounded-[40px] border border-white/5 flex flex-col items-center justify-center gap-4">

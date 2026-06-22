@@ -3,7 +3,7 @@ import cors from 'cors';
 import pathModule from 'path';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
-import pool, { initializeDatabase, logAudit } from './db.js';
+import pool, { initializeDatabase, logAudit, generateClassCode } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = pathModule.dirname(__filename);
@@ -45,10 +45,11 @@ app.get('/api/health', async (req, res) => {
 
 // Endpoint para registrar/iniciar un alumno
 app.post('/api/auth/register', async (req, res) => {
-  const { username, role } = req.body;
+  const { username, role, class_code } = req.body;
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
   const usernameClean = username ? username.trim() : '';
+  const classCodeClean = class_code ? class_code.trim().toUpperCase() : null;
 
   if (!usernameClean) {
     return res.status(422).json({ error: 'El campo username es requerido.' });
@@ -56,6 +57,27 @@ app.post('/api/auth/register', async (req, res) => {
 
   if (role === 'teacher') {
     return res.status(403).json({ error: 'Los profesores no pueden registrarse por esta ruta.' });
+  }
+
+  // Validar código de clase si se envió
+  let validatedClassCode = null;
+  if (classCodeClean) {
+    let connection2;
+    try {
+      connection2 = await pool.getConnection();
+      const [classResult] = await connection2.query(
+        'SELECT class_code FROM learnhands_classes WHERE class_code = ?',
+        [classCodeClean]
+      );
+      if (classResult.length === 0) {
+        return res.status(404).json({ error: 'Código de clase inválido. Verifica el código con tu profesor.' });
+      }
+      validatedClassCode = classCodeClean;
+    } catch (err) {
+      console.error('[Auth Register] Error validando código de clase:', err.message);
+    } finally {
+      if (connection2) connection2.release();
+    }
   }
 
   let connection;
@@ -80,27 +102,31 @@ app.post('/api/auth/register', async (req, res) => {
         status: 'existing',
         message: 'Bienvenido de vuelta.',
         username: usernameClean,
-        role: rows[0].role
+        role: rows[0].role,
+        class_code: rows[0].class_code || null
       });
     }
 
-    // Nuevo alumno
+    // Nuevo alumno (con o sin código de clase)
     await connection.query(
-      'INSERT INTO learnhands_users (username, role, password_hash, last_login_at, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW(), NOW())',
-      [usernameClean, 'student', null]
+      'INSERT INTO learnhands_users (username, role, password_hash, class_code, last_login_at, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW(), NOW())',
+      [usernameClean, 'student', null, validatedClassCode]
     );
 
     await connection.query(
       'INSERT INTO learnhands_audit_logs (action, details, ip_address) VALUES (?, ?, ?)',
-      ['STUDENT_REGISTERED', `Nuevo alumno registrado: '${usernameClean}'.`, ip]
+      ['STUDENT_REGISTERED', `Nuevo alumno registrado: '${usernameClean}'${validatedClassCode ? ` (clase: ${validatedClassCode})` : ' (sin clase asignada)'}.`, ip]
     );
 
     return res.status(201).json({
       success: true,
       status: 'created',
-      message: 'Alumno registrado correctamente.',
+      message: validatedClassCode
+        ? `Alumno registrado correctamente en la clase ${validatedClassCode}.`
+        : 'Alumno registrado correctamente (sin clase asignada).',
       username: usernameClean,
-      role: 'student'
+      role: 'student',
+      class_code: validatedClassCode
     });
 
   } catch (error) {
@@ -314,11 +340,12 @@ app.get('/api/teacher/students', async (req, res) => {
              COALESCE(SUM(learnhands_metrics.score), 0) as total_score, 
              MAX(learnhands_metrics.played_at) as last_played_at,
              learnhands_users.last_login_at,
-             learnhands_users.created_at as registered_at
+             learnhands_users.created_at as registered_at,
+             learnhands_users.class_code
       FROM learnhands_users
       LEFT JOIN learnhands_metrics ON learnhands_users.username = learnhands_metrics.username
       WHERE learnhands_users.role = 'student'
-      GROUP BY learnhands_users.username, learnhands_users.last_login_at, learnhands_users.created_at
+      GROUP BY learnhands_users.username, learnhands_users.last_login_at, learnhands_users.created_at, learnhands_users.class_code
       ORDER BY total_score DESC
     `);
     
@@ -334,6 +361,75 @@ app.get('/api/teacher/students', async (req, res) => {
     });
   }
 });
+
+// Endpoint para obtener el código de clase de la profesora
+app.get('/api/teacher/class-info', async (req, res) => {
+  const { teacher } = req.query;
+  const teacherName = teacher || 'KathePastaz';
+  try {
+    const [rows] = await pool.query(
+      'SELECT class_code, class_name, created_at FROM learnhands_classes WHERE teacher_username = ?',
+      [teacherName]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No se encontró una clase para este profesor.' });
+    }
+
+    // Contar alumnos en esa clase
+    const [studentCount] = await pool.query(
+      'SELECT COUNT(*) as count FROM learnhands_users WHERE class_code = ? AND role = \'student\'',
+      [rows[0].class_code]
+    );
+
+    res.json({
+      class_code: rows[0].class_code,
+      class_name: rows[0].class_name,
+      teacher_username: teacherName,
+      student_count: studentCount[0].count,
+      created_at: rows[0].created_at
+    });
+  } catch (error) {
+    console.error('[Teacher API] Error al obtener clase:', error.message);
+    res.status(500).json({ error: 'Error interno.', details: error.message });
+  }
+});
+
+// Endpoint para regenerar el código de clase (solo el profesor puede hacer esto)
+app.post('/api/teacher/regenerate-class-code', async (req, res) => {
+  const { teacher } = req.body;
+  const teacherName = teacher || 'KathePastaz';
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  try {
+    const newCode = generateClassCode();
+    await pool.query(
+      'UPDATE learnhands_classes SET class_code = ?, updated_at = NOW() WHERE teacher_username = ?',
+      [newCode, teacherName]
+    );
+    await logAudit('CLASS_CODE_REGENERATED', `Nuevo código de clase generado para ${teacherName}: ${newCode}`, ip);
+    res.json({ success: true, class_code: newCode });
+  } catch (error) {
+    console.error('[Teacher API] Error al regenerar código:', error.message);
+    res.status(500).json({ error: 'Error al regenerar código de clase.', details: error.message });
+  }
+});
+
+// Endpoint para validar un código de clase (uso público, para el registro)
+app.get('/api/classes/validate/:code', async (req, res) => {
+  const code = (req.params.code || '').trim().toUpperCase();
+  try {
+    const [rows] = await pool.query(
+      'SELECT class_code, class_name, teacher_username FROM learnhands_classes WHERE class_code = ?',
+      [code]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ valid: false, message: 'Código de clase no encontrado.' });
+    }
+    res.json({ valid: true, class_code: rows[0].class_code, class_name: rows[0].class_name, teacher: rows[0].teacher_username });
+  } catch (error) {
+    res.status(500).json({ valid: false, message: 'Error al validar el código.' });
+  }
+});
+
 
 // Endpoint para todas las métricas
 app.get('/api/teacher/metrics', async (req, res) => {

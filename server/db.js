@@ -4,6 +4,18 @@ import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
+// Genera un código de clase alfanumérico de 6 caracteres en mayúsculas
+function generateClassCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sin O,0,I,1 para evitar confusión
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+export { generateClassCode };
+
 const primaryConfig = {
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '3306', 10),
@@ -67,12 +79,36 @@ export async function initializeDatabase() {
         username VARCHAR(100) NOT NULL UNIQUE,
         role VARCHAR(20) DEFAULT 'student',
         password_hash VARCHAR(255) NULL,
+        class_code VARCHAR(10) NULL,
         last_login_at TIMESTAMP NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
     console.log('[Database] Tabla "learnhands_users" verificada/creada.');
+
+    // Agregar columna class_code si no existe (para bases existentes)
+    try {
+      await connection.query(`ALTER TABLE learnhands_users ADD COLUMN class_code VARCHAR(10) NULL`);
+      console.log('[Database] Columna "class_code" agregada a learnhands_users.');
+    } catch (alterErr) {
+      if (!alterErr.message.includes('Duplicate column')) {
+        console.warn('[Database] No se pudo agregar class_code (puede ya existir):', alterErr.message);
+      }
+    }
+
+    // 2. Tabla de clases (learnhands_classes)
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS learnhands_classes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        teacher_username VARCHAR(100) NOT NULL,
+        class_code VARCHAR(10) NOT NULL UNIQUE,
+        class_name VARCHAR(150) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    console.log('[Database] Tabla "learnhands_classes" verificada/creada.');
 
     // Asegurar que la profesora exista
     const [userRows] = await connection.query('SELECT * FROM learnhands_users WHERE username = ?', ['KathePastaz']);
@@ -85,7 +121,20 @@ export async function initializeDatabase() {
       console.log('[Database] Profesora default "KathePastaz" insertada con contraseña "secreto123".');
     }
 
-    // 2. Tabla de métricas (learnhands_metrics)
+    // Asegurar que la profesora tenga un código de clase generado
+    const [classRows] = await connection.query(
+      'SELECT * FROM learnhands_classes WHERE teacher_username = ?', ['KathePastaz']
+    );
+    if (classRows.length === 0) {
+      const generatedCode = generateClassCode();
+      await connection.query(
+        'INSERT INTO learnhands_classes (teacher_username, class_code, class_name) VALUES (?, ?, ?)',
+        ['KathePastaz', generatedCode, 'Clase Principal']
+      );
+      console.log(`[Database] Código de clase generado para KathePastaz: ${generatedCode}`);
+    }
+
+    // 3. Tabla de métricas (learnhands_metrics)
     await connection.query(`
       CREATE TABLE IF NOT EXISTS learnhands_metrics (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -99,7 +148,7 @@ export async function initializeDatabase() {
     `);
     console.log('[Database] Tabla "learnhands_metrics" verificada/creada.');
 
-    // 3. Tabla de métricas UX (learnhands_ux_metrics)
+    // 4. Tabla de métricas UX (learnhands_ux_metrics)
     await connection.query(`
       CREATE TABLE IF NOT EXISTS learnhands_ux_metrics (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -114,7 +163,7 @@ export async function initializeDatabase() {
     `);
     console.log('[Database] Tabla "learnhands_ux_metrics" verificada/creada.');
 
-    // 4. Tabla de logs de auditoría (learnhands_audit_logs)
+    // 5. Tabla de logs de auditoría (learnhands_audit_logs)
     await connection.query(`
       CREATE TABLE IF NOT EXISTS learnhands_audit_logs (
         id INT AUTO_INCREMENT PRIMARY KEY,

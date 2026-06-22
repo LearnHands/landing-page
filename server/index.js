@@ -356,31 +356,116 @@ app.get('/api/teacher/students', async (req, res) => {
     console.error('[Teacher API] Error al obtener ranking:', error.message);
     await logAudit('TEACHER_API_ERROR', `Fallo al consultar alumnos: ${error.message}`, ip);
     res.status(500).json({ 
-      error: 'Error interno al consultar la lista de estudiantes.', 
-      details: error.message 
+      error: 'Error interno al consultar la lista de estudiantes.',
+      details: error.message
     });
   }
 });
 
-// Endpoint para obtener el código de clase de la profesora
-app.get('/api/teacher/class-info', async (req, res) => {
+// Endpoint para listar TODAS las clases de un profesor
+app.get('/api/teacher/classes', async (req, res) => {
   const { teacher } = req.query;
   const teacherName = teacher || 'KathePastaz';
   try {
     const [rows] = await pool.query(
-      'SELECT class_code, class_name, created_at FROM learnhands_classes WHERE teacher_username = ?',
+      'SELECT id, class_code, class_name, created_at FROM learnhands_classes WHERE teacher_username = ? ORDER BY created_at DESC',
       [teacherName]
     );
+
+    // Para cada clase, contar sus alumnos
+    const classesWithCounts = await Promise.all(rows.map(async (cls) => {
+      const [countRows] = await pool.query(
+        "SELECT COUNT(*) as count FROM learnhands_users WHERE class_code = ? AND role = 'student'",
+        [cls.class_code]
+      );
+      return { ...cls, student_count: countRows[0].count };
+    }));
+
+    res.json(classesWithCounts);
+  } catch (error) {
+    console.error('[Teacher API] Error al listar clases:', error.message);
+    res.status(500).json({ error: 'Error interno.', details: error.message });
+  }
+});
+
+// Endpoint para crear una nueva clase
+app.post('/api/teacher/classes', async (req, res) => {
+  const { teacher, class_name } = req.body;
+  const teacherName = teacher || 'KathePastaz';
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+  if (!class_name || !class_name.trim()) {
+    return res.status(422).json({ error: 'El nombre de la clase es requerido.' });
+  }
+
+  try {
+    // Generar un código único
+    let newCode, attempts = 0;
+    do {
+      newCode = generateClassCode();
+      const [existing] = await pool.query('SELECT id FROM learnhands_classes WHERE class_code = ?', [newCode]);
+      if (existing.length === 0) break;
+      attempts++;
+    } while (attempts < 10);
+
+    await pool.query(
+      'INSERT INTO learnhands_classes (teacher_username, class_code, class_name) VALUES (?, ?, ?)',
+      [teacherName, newCode, class_name.trim()]
+    );
+    await logAudit('CLASS_CREATED', `Nueva clase creada: "${class_name.trim()}" (${newCode}) por ${teacherName}`, ip);
+    res.status(201).json({ success: true, class_code: newCode, class_name: class_name.trim() });
+  } catch (error) {
+    console.error('[Teacher API] Error al crear clase:', error.message);
+    res.status(500).json({ error: 'Error al crear la clase.', details: error.message });
+  }
+});
+
+// Endpoint para eliminar una clase
+app.delete('/api/teacher/classes/:code', async (req, res) => {
+  const code = (req.params.code || '').trim().toUpperCase();
+  const { teacher } = req.query;
+  const teacherName = teacher || 'KathePastaz';
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+  try {
+    // Verificar que la clase pertenece a este profesor
+    const [cls] = await pool.query(
+      'SELECT id, class_name FROM learnhands_classes WHERE class_code = ? AND teacher_username = ?',
+      [code, teacherName]
+    );
+    if (cls.length === 0) {
+      return res.status(404).json({ error: 'Clase no encontrada o no pertenece a este profesor.' });
+    }
+    // Desasignar alumnos de esa clase (quedan sin clase)
+    await pool.query("UPDATE learnhands_users SET class_code = NULL WHERE class_code = ?", [code]);
+    // Eliminar la clase
+    await pool.query('DELETE FROM learnhands_classes WHERE class_code = ?', [code]);
+    await logAudit('CLASS_DELETED', `Clase eliminada: "${cls[0].class_name}" (${code}) por ${teacherName}`, ip);
+    res.json({ success: true, message: `Clase ${code} eliminada. Los alumnos quedaron sin clase asignada.` });
+  } catch (error) {
+    console.error('[Teacher API] Error al eliminar clase:', error.message);
+    res.status(500).json({ error: 'Error al eliminar la clase.', details: error.message });
+  }
+});
+
+// Endpoint retrocompat: GET info de una clase específica (por código o primera del profesor)
+app.get('/api/teacher/class-info', async (req, res) => {
+  const { teacher, code } = req.query;
+  const teacherName = teacher || 'KathePastaz';
+  try {
+    const query = code
+      ? 'SELECT class_code, class_name, created_at FROM learnhands_classes WHERE class_code = ? AND teacher_username = ?'
+      : 'SELECT class_code, class_name, created_at FROM learnhands_classes WHERE teacher_username = ? ORDER BY created_at ASC LIMIT 1';
+    const params = code ? [code.toUpperCase(), teacherName] : [teacherName];
+    const [rows] = await pool.query(query, params);
+
     if (rows.length === 0) {
       return res.status(404).json({ error: 'No se encontró una clase para este profesor.' });
     }
-
-    // Contar alumnos en esa clase
     const [studentCount] = await pool.query(
-      'SELECT COUNT(*) as count FROM learnhands_users WHERE class_code = ? AND role = \'student\'',
+      "SELECT COUNT(*) as count FROM learnhands_users WHERE class_code = ? AND role = 'student'",
       [rows[0].class_code]
     );
-
     res.json({
       class_code: rows[0].class_code,
       class_name: rows[0].class_name,
@@ -394,18 +479,21 @@ app.get('/api/teacher/class-info', async (req, res) => {
   }
 });
 
-// Endpoint para regenerar el código de clase (solo el profesor puede hacer esto)
+// Endpoint para regenerar el código de una clase específica
 app.post('/api/teacher/regenerate-class-code', async (req, res) => {
-  const { teacher } = req.body;
+  const { teacher, class_code } = req.body;
   const teacherName = teacher || 'KathePastaz';
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   try {
+    if (!class_code) return res.status(422).json({ error: 'class_code requerido.' });
     const newCode = generateClassCode();
+    // Desasignar alumnos del código viejo
+    await pool.query("UPDATE learnhands_users SET class_code = NULL WHERE class_code = ?", [class_code.toUpperCase()]);
     await pool.query(
-      'UPDATE learnhands_classes SET class_code = ?, updated_at = NOW() WHERE teacher_username = ?',
-      [newCode, teacherName]
+      'UPDATE learnhands_classes SET class_code = ?, updated_at = NOW() WHERE class_code = ? AND teacher_username = ?',
+      [newCode, class_code.toUpperCase(), teacherName]
     );
-    await logAudit('CLASS_CODE_REGENERATED', `Nuevo código de clase generado para ${teacherName}: ${newCode}`, ip);
+    await logAudit('CLASS_CODE_REGENERATED', `Código regenerado: ${class_code} -> ${newCode} para ${teacherName}`, ip);
     res.json({ success: true, class_code: newCode });
   } catch (error) {
     console.error('[Teacher API] Error al regenerar código:', error.message);
@@ -413,7 +501,7 @@ app.post('/api/teacher/regenerate-class-code', async (req, res) => {
   }
 });
 
-// Endpoint para validar un código de clase (uso público, para el registro)
+// Endpoint para validar un código de clase (uso público)
 app.get('/api/classes/validate/:code', async (req, res) => {
   const code = (req.params.code || '').trim().toUpperCase();
   try {
@@ -429,7 +517,6 @@ app.get('/api/classes/validate/:code', async (req, res) => {
     res.status(500).json({ valid: false, message: 'Error al validar el código.' });
   }
 });
-
 
 // Endpoint para todas las métricas
 app.get('/api/teacher/metrics', async (req, res) => {

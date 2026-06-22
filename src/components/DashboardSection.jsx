@@ -5,7 +5,7 @@ import {
   RefreshCw, Award, AlertTriangle, Copy, CheckCircle, Users, KeyRound, RotateCcw
 } from 'lucide-react';
 
-const PRIMARY_API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3001' : window.location.origin;
+const PRIMARY_API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3001' : 'https://g01.edutecsalpuce.com';
 const FALLBACK_API_URL = 'https://autocomerciojvc.com';
 
 const fetchWithFallback = async (endpoint) => {
@@ -412,7 +412,7 @@ export default function DashboardSection() {
                       <div className="h-64 flex items-center justify-center text-[10px] font-black uppercase text-white/20">Sin registros de puntuación</div>
                     ) : (
                       <div className="w-full flex-1 flex items-end justify-center min-h-[250px] pt-6">
-                        <svg viewBox="0 0 500 200" className="w-full h-64 overflow-visible">
+                        <svg viewBox="0 0 500 240" className="w-full h-72 overflow-visible">
                           <line x1="40" y1="20" x2="480" y2="20" stroke="rgba(255,255,255,0.05)" strokeDasharray="4" />
                           <line x1="40" y1="80" x2="480" y2="80" stroke="rgba(255,255,255,0.05)" strokeDasharray="4" />
                           <line x1="40" y1="140" x2="480" y2="140" stroke="rgba(255,255,255,0.05)" strokeDasharray="4" />
@@ -442,7 +442,16 @@ export default function DashboardSection() {
                                     className="transition-all duration-500 hover:opacity-90 cursor-pointer"
                                   />
                                   <text x={x + 13} y={y - 8} textAnchor="middle" fill="#fff" className="text-[10px] font-black">{g.avg}</text>
-                                  <text x={x + 13} y="185" textAnchor="middle" fill="rgba(255,255,255,0.4)" className="text-[8px] font-black uppercase tracking-wider">{g.game.substring(0, 6)}</text>
+                                  <text
+                                    x={x + 13}
+                                    y="182"
+                                    transform={`rotate(-45, ${x + 13}, 182)`}
+                                    textAnchor="end"
+                                    fill="rgba(255,255,255,0.4)"
+                                    className="text-[7.5px] font-black uppercase tracking-wider"
+                                  >
+                                    {g.game}
+                                  </text>
                                 </g>
                               );
                             });

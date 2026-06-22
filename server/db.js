@@ -4,9 +4,11 @@ import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
-// Genera un código de clase alfanumérico de 6 caracteres en mayúsculas
+// ── Generadores y validadores ──────────────────────────────────────────────────
+
+/** Genera un código de clase alfanumérico de 6 caracteres en mayúsculas */
 function generateClassCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sin O,0,I,1 para evitar confusión
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Sin O,0,I,1
   let code = '';
   for (let i = 0; i < 6; i++) {
     code += chars[Math.floor(Math.random() * chars.length)];
@@ -14,7 +16,42 @@ function generateClassCode() {
   return code;
 }
 
-export { generateClassCode };
+/**
+ * Limpia un texto: elimina tildes, eñes y caracteres especiales.
+ * Solo deja letras a-z A-Z, números, y espacios.
+ */
+function sanitizeText(text) {
+  return text
+    .normalize('NFD')                          // separa caracteres compuestos
+    .replace(/[\u0300-\u036f]/g, '')          // elimina diacríticos (tildes)
+    .replace(/[^a-zA-Z0-9\s]/g, '')           // elimina todo lo que no sea alfanumérico/espacio
+    .replace(/\s+/g, ' ')                     // colapsa espacios múltiples
+    .trim();
+}
+
+/**
+ * Valida si un string es una cédula ecuatoriana válida (10 dígitos numéricos).
+ * Verifica el algoritmo del dígito verificador.
+ */
+function validateCedula(cedula) {
+  if (!/^\d{10}$/.test(cedula)) return false;
+  const digits = cedula.split('').map(Number);
+  const province = digits[0] * 10 + digits[1];
+  if (province < 1 || province > 24) return false;
+  const coefficients = [2, 1, 2, 1, 2, 1, 2, 1, 2];
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    let val = digits[i] * coefficients[i];
+    if (val >= 10) val -= 9;
+    sum += val;
+  }
+  const verifier = (10 - (sum % 10)) % 10;
+  return verifier === digits[9];
+}
+
+export { generateClassCode, sanitizeText, validateCedula };
+
+// ── Configuración de conexiones ────────────────────────────────────────────────
 
 const primaryConfig = {
   host: process.env.DB_HOST || 'localhost',
@@ -41,7 +78,8 @@ const fallbackConfig = {
 let currentPool = null;
 let activeConfigName = 'grupo01';
 
-// Función para inicializar las tablas de base de datos si no existen
+// ── Inicialización de la base de datos ────────────────────────────────────────
+
 export async function initializeDatabase() {
   if (!currentPool) {
     try {
@@ -70,13 +108,14 @@ export async function initializeDatabase() {
   let connection;
   try {
     connection = await currentPool.getConnection();
-    console.log(`[Database] [${activeConfigName}] Conexión establecida con MySQL. Inicializando tablas...`);
+    console.log(`[Database] [${activeConfigName}] Inicializando tablas...`);
 
-    // 1. Tabla de usuarios (learnhands_users)
+    // ── 1. learnhands_users ──────────────────────────────────────────────────
     await connection.query(`
       CREATE TABLE IF NOT EXISTS learnhands_users (
         id INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(100) NOT NULL UNIQUE,
+        display_name VARCHAR(100) NULL,
         role VARCHAR(20) DEFAULT 'student',
         password_hash VARCHAR(255) NULL,
         class_code VARCHAR(10) NULL,
@@ -87,17 +126,23 @@ export async function initializeDatabase() {
     `);
     console.log('[Database] Tabla "learnhands_users" verificada/creada.');
 
-    // Agregar columna class_code si no existe (para bases existentes)
-    try {
-      await connection.query(`ALTER TABLE learnhands_users ADD COLUMN class_code VARCHAR(10) NULL`);
-      console.log('[Database] Columna "class_code" agregada a learnhands_users.');
-    } catch (alterErr) {
-      if (!alterErr.message.includes('Duplicate column')) {
-        console.warn('[Database] No se pudo agregar class_code (puede ya existir):', alterErr.message);
+    // Columnas opcionales para bases existentes
+    const alterColumns = [
+      `ALTER TABLE learnhands_users ADD COLUMN display_name VARCHAR(100) NULL AFTER username`,
+      `ALTER TABLE learnhands_users ADD COLUMN class_code VARCHAR(10) NULL AFTER password_hash`,
+    ];
+    for (const sql of alterColumns) {
+      try {
+        await connection.query(sql);
+      } catch (e) {
+        // Ignorar "Duplicate column" — significa que ya existe
+        if (!e.message.toLowerCase().includes('duplicate column') && !e.message.toLowerCase().includes('already exists')) {
+          console.warn('[Database] ALTER TABLE advertencia:', e.message);
+        }
       }
     }
 
-    // 2. Tabla de clases (learnhands_classes)
+    // ── 2. learnhands_classes ────────────────────────────────────────────────
     await connection.query(`
       CREATE TABLE IF NOT EXISTS learnhands_classes (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -110,31 +155,27 @@ export async function initializeDatabase() {
     `);
     console.log('[Database] Tabla "learnhands_classes" verificada/creada.');
 
-    // Asegurar que la profesora exista
-    const [userRows] = await connection.query('SELECT * FROM learnhands_users WHERE username = ?', ['KathePastaz']);
-    if (userRows.length === 0) {
-      const passwordHash = bcrypt.hashSync('secreto123', 10);
-      await connection.query(`
-        INSERT INTO learnhands_users (username, role, password_hash)
-        VALUES (?, ?, ?)
-      `, ['KathePastaz', 'teacher', passwordHash]);
-      console.log('[Database] Profesora default "KathePastaz" insertada con contraseña "secreto123".');
-    }
+    // ── 3. learnhands_student_classes (relación muchos-a-muchos) ────────────
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS learnhands_student_classes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(100) NOT NULL,
+        class_code VARCHAR(10) NOT NULL,
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_student_class (username, class_code)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    console.log('[Database] Tabla "learnhands_student_classes" verificada/creada.');
 
-    // Asegurar que la profesora tenga un código de clase generado
-    const [classRows] = await connection.query(
-      'SELECT * FROM learnhands_classes WHERE teacher_username = ?', ['KathePastaz']
-    );
-    if (classRows.length === 0) {
-      const generatedCode = generateClassCode();
-      await connection.query(
-        'INSERT INTO learnhands_classes (teacher_username, class_code, class_name) VALUES (?, ?, ?)',
-        ['KathePastaz', generatedCode, 'Clase Principal']
-      );
-      console.log(`[Database] Código de clase generado para KathePastaz: ${generatedCode}`);
-    }
+    // Migrar class_code existentes en learnhands_users → learnhands_student_classes
+    await connection.query(`
+      INSERT IGNORE INTO learnhands_student_classes (username, class_code)
+      SELECT username, class_code
+      FROM learnhands_users
+      WHERE class_code IS NOT NULL AND role = 'student';
+    `);
 
-    // 3. Tabla de métricas (learnhands_metrics)
+    // ── 4. learnhands_metrics ────────────────────────────────────────────────
     await connection.query(`
       CREATE TABLE IF NOT EXISTS learnhands_metrics (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -148,7 +189,7 @@ export async function initializeDatabase() {
     `);
     console.log('[Database] Tabla "learnhands_metrics" verificada/creada.');
 
-    // 4. Tabla de métricas UX (learnhands_ux_metrics)
+    // ── 5. learnhands_ux_metrics ─────────────────────────────────────────────
     await connection.query(`
       CREATE TABLE IF NOT EXISTS learnhands_ux_metrics (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -163,7 +204,7 @@ export async function initializeDatabase() {
     `);
     console.log('[Database] Tabla "learnhands_ux_metrics" verificada/creada.');
 
-    // 5. Tabla de logs de auditoría (learnhands_audit_logs)
+    // ── 6. learnhands_audit_logs ─────────────────────────────────────────────
     await connection.query(`
       CREATE TABLE IF NOT EXISTS learnhands_audit_logs (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -175,10 +216,32 @@ export async function initializeDatabase() {
     `);
     console.log('[Database] Tabla "learnhands_audit_logs" verificada/creada.');
 
-    // Registrar log de inicio
+    // ── Datos iniciales ───────────────────────────────────────────────────────
+    const [userRows] = await connection.query('SELECT * FROM learnhands_users WHERE username = ?', ['KathePastaz']);
+    if (userRows.length === 0) {
+      const passwordHash = bcrypt.hashSync('secreto123', 10);
+      await connection.query(
+        'INSERT INTO learnhands_users (username, display_name, role, password_hash) VALUES (?, ?, ?, ?)',
+        ['KathePastaz', 'Kathy Pastaz', 'teacher', passwordHash]
+      );
+      console.log('[Database] Profesora default "KathePastaz" insertada.');
+    }
+
+    const [classRows] = await connection.query(
+      'SELECT * FROM learnhands_classes WHERE teacher_username = ?', ['KathePastaz']
+    );
+    if (classRows.length === 0) {
+      const generatedCode = generateClassCode();
+      await connection.query(
+        'INSERT INTO learnhands_classes (teacher_username, class_code, class_name) VALUES (?, ?, ?)',
+        ['KathePastaz', generatedCode, 'Clase Principal']
+      );
+      console.log(`[Database] Código de clase generado para KathePastaz: ${generatedCode}`);
+    }
+
     await connection.query(
       'INSERT INTO learnhands_audit_logs (action, details, ip_address) VALUES (?, ?, ?)',
-      ['SYSTEM_STARTUP', 'El sistema backend se ha iniciado y verificado las tablas de base de datos con éxito.', '127.0.0.1']
+      ['SYSTEM_STARTUP', 'Backend iniciado. Tablas verificadas.', '127.0.0.1']
     );
 
   } catch (error) {
@@ -189,7 +252,8 @@ export async function initializeDatabase() {
   }
 }
 
-// Helper para insertar registros de auditoría de forma rápida
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 export async function logAudit(action, details, ipAddress = '127.0.0.1') {
   try {
     const activePool = currentPool || mysql.createPool(primaryConfig);
@@ -202,7 +266,7 @@ export async function logAudit(action, details, ipAddress = '127.0.0.1') {
   }
 }
 
-// Proxy dinámico para exportar el pool
+// Proxy dinámico para exportar el pool activo
 const poolProxy = new Proxy({}, {
   get(target, prop) {
     if (!currentPool) {

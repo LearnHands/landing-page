@@ -103,11 +103,11 @@ return new class extends Migration
         }
 
         // ── Datos iniciales ───────────────────────────────────────────────────
-        $teacher = DB::table('learnhands_users')->where('username', 'KathePastaz')->first();
+        $teacher = DB::table('learnhands_users')->where('username', 'ProfePrueba')->first();
         if (!$teacher) {
             DB::table('learnhands_users')->insert([
-                'username'      => 'KathePastaz',
-                'display_name'  => 'Kathy Pastaz',
+                'username'      => 'ProfePrueba',
+                'display_name'  => 'Profe Prueba',
                 'role'          => 'teacher',
                 'password_hash' => Hash::make('secreto123'),
                 'created_at'    => now(),
@@ -115,7 +115,7 @@ return new class extends Migration
             ]);
         }
 
-        $classes = DB::table('learnhands_classes')->where('teacher_username', 'KathePastaz')->count();
+        $classes = DB::table('learnhands_classes')->where('teacher_username', 'ProfePrueba')->count();
         if ($classes === 0) {
             $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
             $code  = '';
@@ -123,7 +123,7 @@ return new class extends Migration
                 $code .= $chars[random_int(0, strlen($chars) - 1)];
             }
             DB::table('learnhands_classes')->insert([
-                'teacher_username' => 'KathePastaz',
+                'teacher_username' => 'ProfePrueba',
                 'class_code'       => $code,
                 'class_name'       => 'Clase Principal',
                 'created_at'       => now(),

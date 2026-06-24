@@ -108,7 +108,7 @@ export default function DashboardSection() {
       const res = await fetch(`/api/teacher/regenerate-class-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teacher: 'KathePastaz', class_code: classInfo.class_code })
+        body: JSON.stringify({ teacher: 'ProfePrueba', class_code: classInfo.class_code })
       });
       const data = await res.json();
       if (data.success) {

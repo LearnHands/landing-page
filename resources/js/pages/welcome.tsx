@@ -9,9 +9,9 @@ import {
 import DashboardSection from '@/components/DashboardSection';
 import puceLogo from '@/assets/puce.png';
 
-const DESKTOP_REPO = 'https://github.com/GrupoUnoEmprendimiento/LearnHandsEscritorio';
-const RELEASES_URL = 'https://github.com/GrupoUnoEmprendimiento/LearnHandsEscritorio/releases/latest';
-const GITHUB_LINK  = 'https://github.com/GrupoUnoEmprendimiento/LearnHands';
+const DESKTOP_REPO = 'https://github.com/LearnHands/app-escritorio';
+const RELEASES_URL = 'https://github.com/LearnHands/app-escritorio/releases/latest';
+const GITHUB_LINK  = 'https://github.com/LearnHands/landing-page';
 const APP_VERSION  = '2.1.0';
 
 const GithubIcon = ({ size = 20 }: { size?: number }) => (

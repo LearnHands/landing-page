@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
 import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 // Singleton — one HandLandmarker instance for the app's lifetime
 let handLandmarkerPromise = null;
@@ -12,6 +12,7 @@ const distance3D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z - b.z) * 0.5)
 const isFingerExt = (tip, pip, mcp) => {
   const tipToMcp = distance3D(tip, mcp);
   const pipToMcp = distance3D(pip, mcp);
+
   return tipToMcp > pipToMcp * 1.1;
 };
 
@@ -20,12 +21,16 @@ let lastPinchStates = [false, false];
 const calculateGestures = (allLandmarks, handednessList) => {
   if (!allLandmarks || allLandmarks.length === 0) {
     lastPinchStates = [false, false];
+
     return [];
   }
+
   return allLandmarks.map((landmarks, handIdx) => {
     const confidence = handednessList?.[handIdx]?.[0]?.score ?? 1;
+
     if (confidence < 0.5) {
       lastPinchStates[handIdx] = false;
+
       return { isPinching: false, isOpenHand: false, isIndexUp: false, indexTip: landmarks[8], landmarks };
     }
 
@@ -64,7 +69,9 @@ const calculateGestures = (allLandmarks, handednessList) => {
 };
 
 const calculateCursors = (allLandmarks, videoEl) => {
-  if (!allLandmarks || allLandmarks.length === 0) return [];
+  if (!allLandmarks || allLandmarks.length === 0) {
+return [];
+}
 
   const vw = videoEl?.videoWidth || 1280;
   const vh = videoEl?.videoHeight || 720;
@@ -79,7 +86,10 @@ const calculateCursors = (allLandmarks, videoEl) => {
 
   return allLandmarks.map((landmarks) => {
     const indexTip = landmarks[8];
-    if (!indexTip) return { x: 0, y: 0, isVisible: false };
+
+    if (!indexTip) {
+return { x: 0, y: 0, isVisible: false };
+}
 
     // Flip X to mirror the video (video is CSS scale-x-[-1])
     const normX = 1 - indexTip.x;
@@ -99,7 +109,10 @@ const calculateCursors = (allLandmarks, videoEl) => {
 // Convert tasks-vision flat NormalizedLandmark[] (21 per hand) into the same
 // nested array format the rest of the app expects: [[{x,y,z}×21], ...]
 const convertLandmarks = (result) => {
-  if (!result?.landmarks?.length) return [];
+  if (!result?.landmarks?.length) {
+return [];
+}
+
   return result.landmarks; // tasks-vision already returns [{x,y,z}] per hand
 };
 
@@ -116,18 +129,26 @@ export const useMediaPipe = () => {
 
   const stopMediaPipe = useCallback(() => {
     isActiveRef.current = false;
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+    if (rafRef.current) {
+cancelAnimationFrame(rafRef.current);
+}
+
     if (videoRef.current?.srcObject) {
       videoRef.current.srcObject.getTracks().forEach(t => t.stop());
       videoRef.current.srcObject = null;
     }
+
     lastPinchStates = [false, false];
     window.latestHandData = { landmarks: [], cursors: [], gestures: [] };
     setData(prev => ({ ...prev, isDetecting: false }));
   }, []);
 
   const initMediaPipe = useCallback(async (videoElement) => {
-    if (!videoElement || isActiveRef.current) return;
+    if (!videoElement || isActiveRef.current) {
+return;
+}
+
     videoRef.current = videoElement;
     isActiveRef.current = true;
 
@@ -138,6 +159,7 @@ export const useMediaPipe = () => {
           const vision = await FilesetResolver.forVisionTasks(
             'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
           );
+
           return HandLandmarker.createFromOptions(vision, {
             baseOptions: {
               modelAssetPath:
@@ -154,7 +176,10 @@ export const useMediaPipe = () => {
       }
 
       handLandmarkerInstance = await handLandmarkerPromise;
-      if (!isActiveRef.current) return;
+
+      if (!isActiveRef.current) {
+return;
+}
 
       // Open webcam
       // navigator.mediaDevices is only available in secure contexts (HTTPS or localhost)
@@ -163,24 +188,35 @@ export const useMediaPipe = () => {
           'La cámara no está disponible. Accede a la aplicación desde https:// o desde localhost para habilitar el acceso a la cámara.'
         );
       }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
       });
 
-      if (!isActiveRef.current) return;
+      if (!isActiveRef.current) {
+return;
+}
+
       videoRef.current.srcObject = stream;
-      try { await videoRef.current.play(); } catch (_) {}
+
+      try {
+ await videoRef.current.play(); 
+} catch (_) {}
 
       setData(prev => ({ ...prev, isLoaded: true }));
 
       let lastTimestamp = -1;
 
       const process = () => {
-        if (!isActiveRef.current) return;
+        if (!isActiveRef.current) {
+return;
+}
 
         const video = videoRef.current;
+
         if (video && video.readyState >= 2) {
           const nowMs = performance.now();
+
           // tasks-vision requires strictly increasing timestamps
           if (nowMs > lastTimestamp) {
             lastTimestamp = nowMs;
@@ -194,7 +230,10 @@ export const useMediaPipe = () => {
 
             const found = landmarks.length > 0;
             setData(prev => {
-              if (prev.isDetecting === found) return prev;
+              if (prev.isDetecting === found) {
+return prev;
+}
+
               return { ...prev, isDetecting: found };
             });
           }

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Head } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import {
@@ -6,8 +5,9 @@ import {
   Download, CheckCircle, Cpu, Wifi, WifiOff, BookOpen, Gamepad2,
   Compass, Shield, Award, Globe, Square, Circle,
 } from 'lucide-react';
-import DashboardSection from '@/components/DashboardSection';
+import React from 'react';
 import puceLogo from '@/assets/puce.png';
+import DashboardSection from '@/components/DashboardSection';
 
 const DESKTOP_REPO = 'https://github.com/LearnHands/app-escritorio';
 const RELEASES_URL = 'https://github.com/LearnHands/app-escritorio/releases/latest';
@@ -277,6 +277,7 @@ export default function Welcome() {
               <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 {MODULES.map((mod, i) => {
                   const c = COLOR_MAP[mod.color];
+
                   return (
                     <motion.div key={i} whileHover={{ y: -6, scale: 1.02 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                       className={`group p-5 rounded-[28px] border ${c.border} ${c.bg} flex flex-col gap-3 shadow-xl hover:shadow-2xl ${c.glow} transition-all`}>

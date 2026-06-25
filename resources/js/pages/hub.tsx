@@ -1,27 +1,27 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { router } from '@inertiajs/react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Palette, Music, Puzzle, Play, ArrowLeft, Trash2, Trophy, LogOut, BookOpen, Circle, Square, Globe, Gamepad2, Compass, Shield, Award
 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 // Hooks
-import { useMediaPipe } from '../hooks/useMediaPipe';
 
 // Components
+import puceLogo from '../assets/puce.png';
+import HandButton from '../components/hub/HandButton';
 import LayeredEngine from '../components/hub/LayeredEngine';
-import PianoModule from '../components/hub/modules/PianoModule';
+import BricksModule from '../components/hub/modules/BricksModule';
 import DrawingModule from '../components/hub/modules/DrawingModule';
+import EcoGuardianModule from '../components/hub/modules/EcoGuardianModule';
+import MathAbacusModule from '../components/hub/modules/MathAbacusModule';
+import PianoModule from '../components/hub/modules/PianoModule';
 import PuzzleModule from '../components/hub/modules/PuzzleModule';
 import ShapesModule from '../components/hub/modules/ShapesModule';
 import SolarModule from '../components/hub/modules/SolarModule';
-import BricksModule from '../components/hub/modules/BricksModule';
 import SyllablesModule from '../components/hub/modules/SyllablesModule';
-import EcoGuardianModule from '../components/hub/modules/EcoGuardianModule';
-import MathAbacusModule from '../components/hub/modules/MathAbacusModule';
-import HandButton from '../components/hub/HandButton';
 
-import puceLogo from '../assets/puce.png';
+import { useMediaPipe } from '../hooks/useMediaPipe';
 
 const SCORE_KEY = 'learnhands_score';
 
@@ -43,6 +43,7 @@ const SystemHub = ({ onExit }) => {
     setScore(prev => {
       const newScore = prev + p;
       localStorage.setItem(SCORE_KEY, newScore.toString());
+
       return newScore;
     });
   };
@@ -91,15 +92,33 @@ const SystemHub = ({ onExit }) => {
 
             <div className="w-full max-w-6xl">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-16 justify-items-center">
-                <MenuCard icon={<Palette />} title="Pizarra" color="purple" onSelect={() => { setView('GAME'); setCurrentGame('PIZARRA'); }} />
-                <MenuCard icon={<Music />} title="Piano" color="cyan" onSelect={() => { setView('GAME'); setCurrentGame('PIANO'); }} />
-                <MenuCard icon={<Puzzle />} title="Puzzle" color="orange" onSelect={() => { setView('GAME'); setCurrentGame('PUZZLE'); }} />
-                <MenuCard icon={<div className="flex gap-1 items-end"><Circle size={40} className="text-white"/><Square size={30} className="text-white/40"/></div>} title="Colores" color="emerald" onSelect={() => { setView('GAME'); setCurrentGame('COLORES'); }} />
-                <MenuCard icon={<Compass />} title="Constelación" color="cyan" onSelect={() => { setView('GAME'); setCurrentGame('SOLAR'); }} />
-                <MenuCard icon={<Gamepad2 />} title="Balls Crush" color="orange" onSelect={() => { setView('GAME'); setCurrentGame('BRICKS'); }} />
-                <MenuCard icon={<BookOpen />} title="Sílabas" color="purple" onSelect={() => { setView('GAME'); setCurrentGame('SILABAS'); }} />
-                <MenuCard icon={<Shield />} title="Eco-Clasificador" color="emerald" onSelect={() => { setView('GAME'); setCurrentGame('ECO'); }} />
-                <MenuCard icon={<Award />} title="Ábaco" color="orange" onSelect={() => { setView('GAME'); setCurrentGame('ABACUS'); }} />
+                <MenuCard icon={<Palette />} title="Pizarra" color="purple" onSelect={() => {
+ setView('GAME'); setCurrentGame('PIZARRA'); 
+}} />
+                <MenuCard icon={<Music />} title="Piano" color="cyan" onSelect={() => {
+ setView('GAME'); setCurrentGame('PIANO'); 
+}} />
+                <MenuCard icon={<Puzzle />} title="Puzzle" color="orange" onSelect={() => {
+ setView('GAME'); setCurrentGame('PUZZLE'); 
+}} />
+                <MenuCard icon={<div className="flex gap-1 items-end"><Circle size={40} className="text-white"/><Square size={30} className="text-white/40"/></div>} title="Colores" color="emerald" onSelect={() => {
+ setView('GAME'); setCurrentGame('COLORES'); 
+}} />
+                <MenuCard icon={<Compass />} title="Constelación" color="cyan" onSelect={() => {
+ setView('GAME'); setCurrentGame('SOLAR'); 
+}} />
+                <MenuCard icon={<Gamepad2 />} title="Balls Crush" color="orange" onSelect={() => {
+ setView('GAME'); setCurrentGame('BRICKS'); 
+}} />
+                <MenuCard icon={<BookOpen />} title="Sílabas" color="purple" onSelect={() => {
+ setView('GAME'); setCurrentGame('SILABAS'); 
+}} />
+                <MenuCard icon={<Shield />} title="Eco-Clasificador" color="emerald" onSelect={() => {
+ setView('GAME'); setCurrentGame('ECO'); 
+}} />
+                <MenuCard icon={<Award />} title="Ábaco" color="orange" onSelect={() => {
+ setView('GAME'); setCurrentGame('ABACUS'); 
+}} />
               </div>
             </div>
           </motion.div>

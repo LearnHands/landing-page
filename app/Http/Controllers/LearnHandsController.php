@@ -681,54 +681,53 @@ class LearnHandsController extends Controller
 
     public function dashboard(): InertiaResponse
     {
-        $teachers = DB::table('learnhands_users')
-            ->where('role', 'teacher')
-            ->orderBy('created_at')
-            ->select('username', 'display_name', 'last_login_at', 'created_at')
-            ->get();
+        $stats = [
+            'teachers'  => DB::table('learnhands_users')->where('role', 'teacher')->count(),
+            'students'  => DB::table('learnhands_users')->where('role', 'student')->count(),
+            'classes'   => DB::table('learnhands_classes')->count(),
+            'sessions'  => DB::table('learnhands_metrics')->count(),
+        ];
 
-        $students = DB::table('learnhands_users as u')
-            ->leftJoin('learnhands_metrics as m', 'u.username', '=', 'm.username')
-            ->where('u.role', 'student')
-            ->groupBy('u.username', 'u.display_name', 'u.class_code', 'u.last_login_at', 'u.created_at')
-            ->selectRaw('u.username, COALESCE(u.display_name, u.username) as display_name, u.class_code, u.last_login_at, u.created_at, COALESCE(SUM(m.score), 0) as total_score, COUNT(m.id) as sessions')
-            ->orderByDesc('total_score')
-            ->get();
-
-        $metrics = DB::table('learnhands_metrics as m')
-            ->join('learnhands_users as u', 'm.username', '=', 'u.username')
-            ->selectRaw('m.username, COALESCE(u.display_name, m.username) as display_name, m.game_name, m.score, m.duration_seconds, m.played_at')
+        $recentMetrics = DB::table('learnhands_metrics as m')
+            ->leftJoin('learnhands_users as u', 'm.username', '=', 'u.username')
+            ->selectRaw('m.username, COALESCE(u.display_name, m.username) as display_name, m.game_name, m.score, m.played_at')
             ->orderByDesc('m.played_at')
-            ->limit(100)
-            ->get();
-
-        $byGame = DB::table('learnhands_metrics')
-            ->selectRaw('game_name, COUNT(*) as sessions, AVG(score) as avg_score, MAX(score) as max_score, AVG(duration_seconds) as avg_duration')
-            ->groupBy('game_name')
-            ->orderByDesc('sessions')
+            ->limit(10)
             ->get();
 
         return Inertia::render('dashboard', [
-            'teachers' => $teachers,
-            'students' => $students,
-            'metrics'  => $metrics,
-            'byGame'   => $byGame,
+            'stats'         => $stats,
+            'recentMetrics' => $recentMetrics,
         ]);
     }
 
-    public function adminCreateTeacher(Request $request): RedirectResponse
+    // ─── Teachers CRUD (web panel) ────────────────────────────────────────────
+
+    public function teachersIndex(): InertiaResponse
+    {
+        $teachers = DB::table('learnhands_users as u')
+            ->leftJoin('learnhands_classes as c', 'u.username', '=', 'c.teacher_username')
+            ->where('u.role', 'teacher')
+            ->groupBy('u.username', 'u.display_name', 'u.last_login_at', 'u.created_at')
+            ->selectRaw('u.username, COALESCE(u.display_name, u.username) as display_name, u.last_login_at, u.created_at, COUNT(c.id) as class_count')
+            ->orderBy('u.created_at')
+            ->get();
+
+        return Inertia::render('teachers/index', ['teachers' => $teachers]);
+    }
+
+    public function teachersStore(Request $request): RedirectResponse
     {
         $username    = trim($request->input('username', ''));
         $displayName = trim($request->input('display_name', ''));
         $password    = trim($request->input('password', ''));
 
         if (!$username || !$password) {
-            return redirect()->route('dashboard')->with('error', 'Usuario y contraseña son requeridos.');
+            return back()->withErrors(['username' => 'Usuario y contraseña son requeridos.']);
         }
 
-        $exists = DB::table('learnhands_users')->where('username', $username)->exists();
-        if ($exists) {
-            return redirect()->route('dashboard')->with('error', "El usuario '{$username}' ya existe.");
+        if (DB::table('learnhands_users')->where('username', $username)->exists()) {
+            return back()->withErrors(['username' => "El usuario '{$username}' ya existe."]);
         }
 
         DB::table('learnhands_users')->insert([
@@ -749,16 +748,140 @@ class LearnHandsController extends Controller
             'updated_at'       => now(),
         ]);
 
-        $this->logAudit('ADMIN_TEACHER_CREATED', "Profesor '{$username}' creado.", $request->ip());
+        $this->logAudit('TEACHER_CREATED', "Profesor '{$username}' creado.", $request->ip());
 
-        return redirect()->route('dashboard')->with('success', "Profesor '{$username}' registrado. Código de clase: {$classCode}.");
+        Inertia::flash('toast', ['type' => 'success', 'message' => "Profesor '{$username}' creado. Código: {$classCode}."]);
+
+        return redirect()->route('teachers.index');
     }
 
-    public function adminDeleteTeacher(string $username, Request $request): RedirectResponse
+    public function teachersEdit(string $username): InertiaResponse
+    {
+        $teacher = DB::table('learnhands_users')
+            ->where('username', $username)
+            ->where('role', 'teacher')
+            ->select('username', 'display_name', 'created_at')
+            ->first();
+
+        abort_unless($teacher, 404);
+
+        return Inertia::render('teachers/edit', ['teacher' => $teacher]);
+    }
+
+    public function teachersUpdate(string $username, Request $request): RedirectResponse
+    {
+        $displayName = trim($request->input('display_name', ''));
+        $password    = trim($request->input('password', ''));
+
+        $update = ['display_name' => $displayName ?: $username, 'updated_at' => now()];
+
+        if ($password) {
+            $update['password_hash'] = Hash::make($password);
+        }
+
+        DB::table('learnhands_users')
+            ->where('username', $username)
+            ->where('role', 'teacher')
+            ->update($update);
+
+        $this->logAudit('TEACHER_UPDATED', "Profesor '{$username}' actualizado.", $request->ip());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => "Profesor '{$username}' actualizado."]);
+
+        return redirect()->route('teachers.index');
+    }
+
+    public function teachersDestroy(string $username, Request $request): RedirectResponse
     {
         DB::table('learnhands_users')->where('username', $username)->where('role', 'teacher')->delete();
-        $this->logAudit('ADMIN_TEACHER_DELETED', "Profesor '{$username}' eliminado.", $request->ip());
+        $this->logAudit('TEACHER_DELETED', "Profesor '{$username}' eliminado.", $request->ip());
 
-        return redirect()->route('dashboard')->with('success', "Profesor '{$username}' eliminado.");
+        Inertia::flash('toast', ['type' => 'success', 'message' => "Profesor '{$username}' eliminado."]);
+
+        return redirect()->route('teachers.index');
+    }
+
+    // ─── Students CRUD (web panel) ────────────────────────────────────────────
+
+    public function studentsIndex(): InertiaResponse
+    {
+        $students = DB::table('learnhands_users as u')
+            ->leftJoin('learnhands_metrics as m', 'u.username', '=', 'm.username')
+            ->where('u.role', 'student')
+            ->groupBy('u.username', 'u.display_name', 'u.class_code', 'u.last_login_at', 'u.created_at')
+            ->selectRaw('u.username, COALESCE(u.display_name, u.username) as display_name, u.class_code, u.last_login_at, u.created_at, COALESCE(SUM(m.score), 0) as total_score, COUNT(m.id) as sessions')
+            ->orderByDesc('total_score')
+            ->get();
+
+        return Inertia::render('students/index', ['students' => $students]);
+    }
+
+    public function studentsDestroy(string $username, Request $request): RedirectResponse
+    {
+        DB::table('learnhands_users')->where('username', $username)->where('role', 'student')->delete();
+        $this->logAudit('STUDENT_DELETED', "Estudiante '{$username}' eliminado.", $request->ip());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => "Estudiante '{$username}' eliminado."]);
+
+        return redirect()->route('students.index');
+    }
+
+    // ─── Classes CRUD (web panel) ─────────────────────────────────────────────
+
+    public function classesIndex(): InertiaResponse
+    {
+        $classes = DB::table('learnhands_classes as c')
+            ->leftJoin('learnhands_student_classes as sc', 'c.class_code', '=', 'sc.class_code')
+            ->leftJoin('learnhands_users as u', 'c.teacher_username', '=', 'u.username')
+            ->groupBy('c.id', 'c.class_code', 'c.class_name', 'c.teacher_username', 'u.display_name', 'c.created_at')
+            ->selectRaw('c.id, c.class_code, c.class_name, c.teacher_username, COALESCE(u.display_name, c.teacher_username) as teacher_name, c.created_at, COUNT(sc.username) as student_count')
+            ->orderByDesc('c.created_at')
+            ->get();
+
+        $teachers = DB::table('learnhands_users')
+            ->where('role', 'teacher')
+            ->select('username', 'display_name')
+            ->orderBy('username')
+            ->get();
+
+        return Inertia::render('classes/index', [
+            'classes'  => $classes,
+            'teachers' => $teachers,
+        ]);
+    }
+
+    public function classesStore(Request $request): RedirectResponse
+    {
+        $teacherUsername = trim($request->input('teacher_username', ''));
+        $className       = trim($request->input('class_name', '')) ?: 'Clase Principal';
+
+        if (!$teacherUsername) {
+            return back()->withErrors(['teacher_username' => 'Selecciona un profesor.']);
+        }
+
+        $classCode = $this->generateClassCode();
+        DB::table('learnhands_classes')->insert([
+            'teacher_username' => $teacherUsername,
+            'class_code'       => $classCode,
+            'class_name'       => $className,
+            'created_at'       => now(),
+            'updated_at'       => now(),
+        ]);
+
+        $this->logAudit('CLASS_CREATED', "Clase '{$classCode}' creada para '{$teacherUsername}'.", $request->ip());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => "Clase '{$className}' creada con código {$classCode}."]);
+
+        return redirect()->route('classes.index');
+    }
+
+    public function classesDestroy(string $code, Request $request): RedirectResponse
+    {
+        DB::table('learnhands_classes')->where('class_code', strtoupper($code))->delete();
+        $this->logAudit('CLASS_DELETED', "Clase '{$code}' eliminada.", $request->ip());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => "Clase '{$code}' eliminada."]);
+
+        return redirect()->route('classes.index');
     }
 }

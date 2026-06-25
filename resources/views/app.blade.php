@@ -30,8 +30,8 @@
             }
         </style>
 
+        <link rel="icon" href="/logo_sin_fondo_learn_hands.ico" sizes="any">
         <link rel="icon" href="/logo_sin_fondo_learn_hands.svg" type="image/svg+xml">
-        <link rel="icon" href="/logo_sin_fondo_learn_hands.png" type="image/png">
         <link rel="apple-touch-icon" href="/logo_sin_fondo_learn_hands.png">
 
         @fonts

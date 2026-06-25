@@ -677,100 +677,58 @@ class LearnHandsController extends Controller
         return response()->json($rows);
     }
 
-    // ── Panel Administrativo ──────────────────────────────────────────────────
+    // ── Dashboard Administrativo (protegido por auth de Laravel) ─────────────
 
-    private function isAdminAuthenticated(Request $request): bool
+    public function dashboard(): InertiaResponse
     {
-        return $request->session()->get('admin_authenticated') === true;
-    }
+        $teachers = DB::table('learnhands_users')
+            ->where('role', 'teacher')
+            ->orderBy('created_at')
+            ->select('username', 'display_name', 'last_login_at', 'created_at')
+            ->get();
 
-    public function adminPanel(Request $request): InertiaResponse
-    {
-        $authenticated = $this->isAdminAuthenticated($request);
+        $students = DB::table('learnhands_users as u')
+            ->leftJoin('learnhands_metrics as m', 'u.username', '=', 'm.username')
+            ->where('u.role', 'student')
+            ->groupBy('u.username', 'u.display_name', 'u.class_code', 'u.last_login_at', 'u.created_at')
+            ->selectRaw('u.username, COALESCE(u.display_name, u.username) as display_name, u.class_code, u.last_login_at, u.created_at, COALESCE(SUM(m.score), 0) as total_score, COUNT(m.id) as sessions')
+            ->orderByDesc('total_score')
+            ->get();
 
-        $props = ['authenticated' => $authenticated];
+        $metrics = DB::table('learnhands_metrics as m')
+            ->join('learnhands_users as u', 'm.username', '=', 'u.username')
+            ->selectRaw('m.username, COALESCE(u.display_name, m.username) as display_name, m.game_name, m.score, m.duration_seconds, m.played_at')
+            ->orderByDesc('m.played_at')
+            ->limit(100)
+            ->get();
 
-        if ($authenticated) {
-            // Profesores
-            $teachers = DB::table('learnhands_users')
-                ->where('role', 'teacher')
-                ->orderBy('created_at')
-                ->select('username', 'display_name', 'last_login_at', 'created_at')
-                ->get();
+        $byGame = DB::table('learnhands_metrics')
+            ->selectRaw('game_name, COUNT(*) as sessions, AVG(score) as avg_score, MAX(score) as max_score, AVG(duration_seconds) as avg_duration')
+            ->groupBy('game_name')
+            ->orderByDesc('sessions')
+            ->get();
 
-            // Estudiantes con puntaje total
-            $students = DB::table('learnhands_users as u')
-                ->leftJoin('learnhands_metrics as m', 'u.username', '=', 'm.username')
-                ->where('u.role', 'student')
-                ->groupBy('u.username', 'u.display_name', 'u.class_code', 'u.last_login_at', 'u.created_at')
-                ->selectRaw('u.username, COALESCE(u.display_name, u.username) as display_name, u.class_code, u.last_login_at, u.created_at, COALESCE(SUM(m.score), 0) as total_score, COUNT(m.id) as sessions')
-                ->orderByDesc('total_score')
-                ->get();
-
-            // Métricas por juego (top scores)
-            $metrics = DB::table('learnhands_metrics as m')
-                ->join('learnhands_users as u', 'm.username', '=', 'u.username')
-                ->selectRaw('m.username, COALESCE(u.display_name, m.username) as display_name, m.game_name, m.score, m.duration_seconds, m.played_at')
-                ->orderByDesc('m.played_at')
-                ->limit(100)
-                ->get();
-
-            // Resumen por módulo
-            $byGame = DB::table('learnhands_metrics')
-                ->selectRaw('game_name, COUNT(*) as sessions, AVG(score) as avg_score, MAX(score) as max_score, AVG(duration_seconds) as avg_duration')
-                ->groupBy('game_name')
-                ->orderByDesc('sessions')
-                ->get();
-
-            $props = array_merge($props, [
-                'teachers' => $teachers,
-                'students' => $students,
-                'metrics'  => $metrics,
-                'byGame'   => $byGame,
-            ]);
-        }
-
-        return Inertia::render('admin', $props);
-    }
-
-    public function adminLogin(Request $request): RedirectResponse
-    {
-        $password     = $request->input('password', '');
-        $adminPassword = env('ADMIN_PASSWORD', 'admin1234');
-
-        if ($password === $adminPassword) {
-            $request->session()->put('admin_authenticated', true);
-            $this->logAudit('ADMIN_LOGIN', 'Acceso al panel administrativo.', $request->ip());
-        } else {
-            return redirect()->route('admin')->with('error', 'Contraseña incorrecta.');
-        }
-
-        return redirect()->route('admin');
-    }
-
-    public function adminLogout(Request $request): RedirectResponse
-    {
-        $request->session()->forget('admin_authenticated');
-        return redirect()->route('admin');
+        return Inertia::render('dashboard', [
+            'teachers' => $teachers,
+            'students' => $students,
+            'metrics'  => $metrics,
+            'byGame'   => $byGame,
+        ]);
     }
 
     public function adminCreateTeacher(Request $request): RedirectResponse
     {
-        if (!$this->isAdminAuthenticated($request)) {
-            return redirect()->route('admin');
-        }
-
         $username    = trim($request->input('username', ''));
         $displayName = trim($request->input('display_name', ''));
         $password    = trim($request->input('password', ''));
 
         if (!$username || !$password) {
-            return redirect()->route('admin')->with('error', 'Usuario y contraseña son requeridos.');
+            return redirect()->route('dashboard')->with('error', 'Usuario y contraseña son requeridos.');
         }
 
         $exists = DB::table('learnhands_users')->where('username', $username)->exists();
         if ($exists) {
-            return redirect()->route('admin')->with('error', "El usuario '{$username}' ya existe.");
+            return redirect()->route('dashboard')->with('error', "El usuario '{$username}' ya existe.");
         }
 
         DB::table('learnhands_users')->insert([
@@ -782,7 +740,6 @@ class LearnHandsController extends Controller
             'updated_at'    => now(),
         ]);
 
-        // Crear clase inicial para el nuevo profesor
         $classCode = $this->generateClassCode();
         DB::table('learnhands_classes')->insert([
             'teacher_username' => $username,
@@ -792,20 +749,16 @@ class LearnHandsController extends Controller
             'updated_at'       => now(),
         ]);
 
-        $this->logAudit('ADMIN_TEACHER_CREATED', "Profesor '{$username}' creado desde panel admin.", $request->ip());
+        $this->logAudit('ADMIN_TEACHER_CREATED', "Profesor '{$username}' creado.", $request->ip());
 
-        return redirect()->route('admin')->with('success', "Profesor '{$username}' registrado con código de clase {$classCode}.");
+        return redirect()->route('dashboard')->with('success', "Profesor '{$username}' registrado. Código de clase: {$classCode}.");
     }
 
     public function adminDeleteTeacher(string $username, Request $request): RedirectResponse
     {
-        if (!$this->isAdminAuthenticated($request)) {
-            return redirect()->route('admin');
-        }
-
         DB::table('learnhands_users')->where('username', $username)->where('role', 'teacher')->delete();
         $this->logAudit('ADMIN_TEACHER_DELETED', "Profesor '{$username}' eliminado.", $request->ip());
 
-        return redirect()->route('admin')->with('success', "Profesor '{$username}' eliminado.");
+        return redirect()->route('dashboard')->with('success', "Profesor '{$username}' eliminado.");
     }
 }
